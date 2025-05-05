@@ -1,84 +1,216 @@
-questinscontroleler//
-import {Request,Response} from 'express';
-import { Questions,Answers,TestResult } from '../types/questionsType';
-import{TestResultModel}  from  '../models/result';
-import {sendEmail}   from './mailController';
-import { IUser } from "../models/User"; 
-import { CustomRequest } from "../middleware/auth"; 
-const questionsData = require("../data/questions.json");
+//mailController.ts 
+import { Request, Response } from 'express';
+import { Questions, Answers, TestResult } from '../types/questionsType';
+import { TestResultModel } from '../models/result';
+import nodemailer from 'nodemailer';
+import dotenv from 'dotenv';
+import { PASSWORD_RESET_REQUEST_TEMPLATE, PASSWORD_RESET_SUCCESS_TEMPLATE, VERIFICATION_EMAIL_TEMPLATE,WELCOME_EMAIL_TEMPLATE } from "../mail/template";
 
-const allquestions: Questions[]=questionsData;
-export const getQuestions=async(req:Request,res:Response)=>{
-    try{
-        res.status(200).json(allquestions);
-    }
-    catch (error: any) {
-        console.error('error getting questions', error);
-        res.status(500).json({ message: "failed fetch questions" });
-    }
-    };
-export  const submitAnswers = async (req: CustomRequest, res: Response) => {
-    try {
-      const answers: Answers[] = req.body.answers;
-      const startTime: Date = new Date(req.body.startTime);
-      const endTime: Date = new Date();
-      const totalTimeTaken = Math.floor((endTime.getTime() - startTime.getTime()) / 1000);
-  
-      const results: TestResult["results"] = [];
-      let correctAnswerCount = 0;
-  
-      for (const answer of answers) {
-        const question = allquestions.find((q) => q._id === answer.questionId);
-        if (question) {
-          const isCorrect = question.correctOption === answer.selectedOption;
-          if (isCorrect) {
-            correctAnswerCount++;
-          }
-          results.push({
-            questionId: question._id!,
-            isCorrect,
-            selectedOption: answer.selectedOption,
-            correctOption: question.correctOption,
-            timeTaken: answer.timeTaken,
-          });
-        }
-      }
-  
-      const finalResult: TestResult = {
-        startTime,
-        endTime,
-        totalTimeTaken,
-        correctAnswerCount,
-        results,
-      };
-  
-      const testResult = new TestResultModel({
-         ...finalResult,
-        user: req.user?._id, 
-        });
-        
-      await testResult.save();
-  
-      const userEmail = req.user?.email || '';  
-    if (!userEmail) {
-      console.log('No user email found, unable to send email');
-    } else {
-      sendEmail(userEmail, finalResult);
-    }
-      res.status(200).json(finalResult);
-    } catch (error: any) {
-      console.error("Error submitting answer", error);
-      res.status(500).json({ message: "Failed to submit answer" });
-    }
+
+dotenv.config();
+
+
+const transporter = nodemailer.createTransport({
+  service: 'gmail', 
+  auth: {
+    user: process.env.EMAIL_USER, 
+    pass: process.env.EMAIL_PASS, 
+  },
+});
+
+ export const sendEmail = (userEmail: string, finalResult: TestResult) => {
+  const totalQuestions = finalResult.results.length;
+  const emailContent = `
+  <div style="font-family: Arial, sans-serif; background: #f4f6f9; padding: 40px;">
+    <div style="max-width: 600px; margin: auto; background: #ffffff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 30px;">
+      <div style="text-align: center;">
+        <h1 style="color: #4a90e2;">🎉 Your Test Results Are In!</h1>
+        <p style="color: #333; font-size: 16px;">Thank you for completing the test. Here's how you did:</p>
+      </div>
+      <div style="margin: 30px 0; text-align: center;">
+        <div style="font-size: 20px; color: #555; margin-bottom: 10px;">Total Score</div>
+        <div style="font-size: 36px; font-weight: bold; color: #27ae60;">
+          ${finalResult.correctAnswerCount} /${totalQuestions}
+        </div>
+        <div style="margin-top: 20px; font-size: 20px; color: #555;">Total Time Taken</div>
+        <div style="font-size: 24px; font-weight: bold; color: #e67e22;">
+          ${finalResult.totalTimeTaken} seconds
+        </div>
+      </div>
+      <div style="text-align: center; margin-top: 40px;">
+        <p style="color: #777; font-size: 14px;">Keep up the great work and best of luck on your next challenge! 💪</p>
+      </div>
+    </div>
+  </div>
+`;
+
+
+  const mailOptions = {
+    from: 'prakhar.katiyar@ensuesoft.com',
+    to: userEmail,  
+    subject: 'Your Test Results',
+    html: emailContent,
   };
-admincontroller.ts
+
+  transporter.sendMail(mailOptions, (error, info) => {
+    if (error) {
+      console.log('Error sending email:', error);
+    } else {
+      console.log('Email sent:', info.response);
+    }
+  });
+};
+
+export const sendVerificationEmail = async (
+  email: string,
+  verificationToken: string
+): Promise<void> => {
+  const recipient = [email];
+
+  try {
+    const response = await transporter.sendMail({
+      from: 'prakhar.katiyar@ensuesoft.com',
+      to: recipient,
+      subject: "Verify your email",
+      html: VERIFICATION_EMAIL_TEMPLATE.replace("{verificationCode}", verificationToken),
+      headers: {
+        "X-Category": "email verification", 
+      }
+    });
+
+    console.log("Email sent successfully");
+  } catch (error) {
+    throw new Error(`ERROR SENDING VERIFICATION MAIL: ${(error as Error).message}`);
+  }
+};
+
+export const sendWelcomeEmail = async (
+  email: string,
+  name:string
+): Promise<void> => {
+  const recipient = [email];
+
+  try {
+    const response = await transporter.sendMail({
+      from: 'prakhar.katiyar@ensuesoft.com',
+      to: recipient,
+      subject: "Welcome Email",
+      html: WELCOME_EMAIL_TEMPLATE.replace("{username}", name),
+      headers: {
+        "X-Category": "Welcome email", 
+      }
+    });
+
+    console.log("Email sent successfully");
+  } catch (error) {
+    throw new Error(`ERROR SENDING WELCOME MAIL: ${(error as Error).message}`);
+  }
+};
+
+
+export const sendPasswordResetEmail= async (
+  email: string,
+  resetURL:string
+): Promise<void> => {
+  const recipient = [email];
+
+  try {
+    const response = await transporter.sendMail({
+      from: 'prakhar.katiyar@ensuesoft.com',
+      to: recipient,
+      subject: "Reset Password",
+      html: PASSWORD_RESET_REQUEST_TEMPLATE.replace("{resetURL}", resetURL),
+      headers: {
+        "X-Category": "Password reset", 
+      }
+    });
+
+    console.log("Email sent successfully");
+  } catch (error) {
+    throw new Error(`ERROR SENDING WELCOME MAIL: ${(error as Error).message}`);
+  }
+};
+export const sendResetSuccessEmail= async (
+  email: string
+): Promise<void> => {
+  const recipient = [email];
+
+  try {
+    const response = await transporter.sendMail({
+      from: 'prakhar.katiyar@ensuesoft.com',
+      to: recipient,
+      subject: "Password reset successfully",
+      html: PASSWORD_RESET_SUCCESS_TEMPLATE,
+      headers: {
+        "X-Category": "Password reset", 
+      }
+    });
+
+    console.log("Email sent successfully");
+  } catch (error) {
+    throw new Error(`ERROR SENDING WELCOME MAIL: ${(error as Error).message}`);
+  }
+};
+
+export const sendEmailWithLink = async (
+  userEmail: string,
+  userName: string,
+  link: string,
+  expiryDate: Date
+): Promise<void> => {
+  const mailOptions = {
+    from: 'prakhar.katiyar@ensuesoft.com',
+    to: userEmail,
+    subject: 'Invitation to Take Assessment',
+    html: `
+      <div style="font-family: Arial, sans-serif; background: #f4f6f9; padding: 40px;">
+        <div style="max-width: 600px; margin: auto; background: #ffffff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 30px;">
+          <div style="text-align: center;">
+            <h1 style="color: #4a90e2;">You're Invited to Take an Assessment!</h1>
+            <p style="color: #333; font-size: 16px;">Dear ${userName},</p>
+            <p style="color: #333; font-size: 16px;">You have been invited to take an assessment. Please click the link below to access it:</p>
+            <div style="margin: 30px 0; text-align: center;">
+              <a href="${link}" style="display: inline-block; background-color: #4a90e2; color: white; padding: 14px 20px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">
+                Take Assessment
+              </a>
+            </div>
+            <p style="color: #777; font-size: 14px;">This link will expire on <strong>${expiryDate.toLocaleDateString()}</strong> at <strong>${expiryDate.toLocaleTimeString()}</strong>.</p>
+            <p style="color: #777; font-size: 14px;">Please ensure you complete the assessment before the expiry time.</p>
+          </div>
+          <div style="text-align: center; margin-top: 40px;">
+            <p style="color: #777; font-size: 14px;">Best regards,</p>
+            <p style="color: #777; font-size: 14px;">The Assessment Team</p>
+          </div>
+        </div>
+      </div>
+    `,
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Email sent:', info.response);
+  } catch (error) {
+    console.error('Error sending email:', error);
+    throw new Error(`ERROR SENDING ASSESSMENT LINK MAIL: ${(error as Error).message}`);
+  }
+};
+
+//adminController.ts
 import { Request, Response } from "express";
 import User from "../../models/User";
-import bcrypt from "bcryptjs";
-import crypto from "crypto";
 import { createJWT } from "../../utils/jwt";
 import { TestResultModel } from '../../models/result';
-import { authenticateUser, authorizeRoles } from "../../middleware/auth";
+import { Question } from "../../models/adminModels/questionsModel";
+import { AssessmentLinkModel } from "../../models/adminModels/assessmentModel";
+import { v4 as uuidv4 } from 'uuid';
+import { sendEmailWithLink } from "../mailController"; // Import the new function
+import { IUser } from '../../models/User'; // adjust path
+import dotenv from 'dotenv';
+dotenv.config();
+interface AuthedRequest extends Request {
+  user?: IUser;
+}
+
 export const register = async (req: Request, res: Response) => {
 
 try{
@@ -132,44 +264,148 @@ export const getResult = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Failed to fetch test results' });
   }
 };
-result.ts
-import mongoose, { Document, Schema } from "mongoose";
 
-interface AnswerResult{
-    questionId:string;
-    isCorrect:boolean;
-    selectedOption:string;
-    correctOption:string;
-    timeTaken:number;
-}
-interface TestResult extends Document{
-    startTime:Date;
-    endTime:Date;
-    totalTimeTaken:number;
-    correctAnswerCount:number;
-    results:AnswerResult[];
-}
-const AnswerResultSchema:Schema=new Schema({                                                                                                          
-questionId: { type: String, required: true },
-  isCorrect: { type: Boolean, required: true },
-  selectedOption: { type: String, required: true },
-  correctOption: { type: String, required: true },
-  timeTaken: { type: Number, required: true },
-})
+export const createQuestion = async (req: Request, res: Response) => {
+  try {
+    const { question, options, correctOption } = req.body;
+    const newQuestion = new Question({ question, options, correctOption });
+    await newQuestion.save();
+    res.status(201).json(newQuestion);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to create question', error });
+  }
+};
 
-const TestResultSchema:Schema=new Schema({
-    startTime: { type: Date, required: true },
-    endTime: { type: Date, required: true },
-    totalTimeTaken: { type: Number, required: true },
-    correctAnswerCount: { type: Number, required: true },
-    results: [AnswerResultSchema],
-    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-})
-const TestResultModel = mongoose.model<TestResult>('TestResult', TestResultSchema);
-export { TestResultModel, TestResult };
+export const updateQuestion = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { question, options, correctOption } = req.body;
 
-adminRoutes.ts
-import { register,getUser,getResult } from "../../controllers/adminControllers/adminController";
+    const updated = await Question.findByIdAndUpdate(
+      id,
+      { question, options, correctOption },
+      { new: true }
+    );
+
+    if (!updated) return res.status(404).json({ message: "Question not found" });
+    res.status(200).json(updated);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to update question', error });
+  }
+};
+
+
+export const deleteQuestion = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const deleted = await Question.findByIdAndDelete(id);
+    if (!deleted) return res.status(404).json({ message: "Question not found" });
+    res.status(200).json({ message: "Question deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to delete question', error });
+  }
+};
+
+
+export const createAssessmentLink = async (req:AuthedRequest, res: Response) => {
+  try {
+    const { questionsToAsk, assignedTime, expiryDays, userEmail, userName } = req.body;
+    const adminUser = req.user;
+
+    if (!adminUser) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const totalQuestions = await Question.countDocuments();
+    if (questionsToAsk > totalQuestions) {
+      return res.status(400).json({ message: `Not enough questions available. Total questions: ${totalQuestions}` });
+    }
+
+    const questions = await Question.aggregate([{ $sample: { size: questionsToAsk } }]);
+    const uniqueToken = uuidv4();
+    const link = `${process.env.FRONTEND_URL}/rules/${uniqueToken}`;
+    const expiryDate = new Date();
+    expiryDate.setDate(expiryDate.getDate() + expiryDays);
+
+    const newAssessmentLink = new AssessmentLinkModel({
+      link,
+      createdBy: adminUser._id,
+      questionsToAsk,
+      assignedTime,
+      expiryDate,
+      userEmail,
+      userName,
+      token: uniqueToken,
+    });
+
+    await newAssessmentLink.save();
+
+    // Use the new sendEmailWithLink function
+    await sendEmailWithLink(userEmail, userName, link, expiryDate);
+
+    res.status(201).json({ message: "Assessment link created and sent successfully", link: link });
+  } catch (error: any) {
+    console.error("Error creating assessment link:", error);
+    res.status(500).json({ message: "Failed to create assessment link", error: error.message });
+  }
+};
+
+
+export const getAssessmentLinks = async (req: Request, res: Response) => {
+  try {
+    const assessmentLinks = await AssessmentLinkModel.find().populate('createdBy', 'name email');
+    res.status(200).json(assessmentLinks);
+  } catch (error: any) {
+    res.status(500).json({ message: "Failed to fetch assessment links", error: error.message });
+  }
+};
+
+export const getAssessmentLinkByToken = async (req: Request, res: Response) => {
+  try {
+    const { token } = req.params;
+    console.log(token);
+    const assessmentLink = await AssessmentLinkModel.findOne({ link: `${process.env.FRONTEND_URL}/rules/${token}` });
+    console.log(assessmentLink)
+    if (!assessmentLink) {
+      return res.status(404).json({ message: "Invalid or expired assessment link" });
+    }
+
+    if (new Date() > assessmentLink.expiryDate) {
+      return res.status(410).json({ message: "Assessment link has expired" });
+    }
+
+    // Optionally, you might want to check if the user has already taken the test.
+    console.log("Questions to ask:", assessmentLink.questionsToAsk);
+    const total = await Question.countDocuments();
+console.log("Total available questions:", total);
+    // Fetch random questions based on the link configuration
+    const questions = await Question.aggregate([{ $sample: { size: assessmentLink.questionsToAsk } }]);
+    console.log("Fetched questions:", questions);
+
+    res.status(200).json({ assessmentLink, questions, assignedTime: assessmentLink.assignedTime });
+  } catch (error: any) {
+    console.error("Error fetching assessment link by token:", error);
+    res.status(500).json({ message: "Failed to fetch assessment link", error: error.message });
+  }
+};
+
+//QuestionRoutes.ts
+import { getQuestions,submitAnswers } from "../controllers/questionsController";
+import { getAssessmentLinkByToken } from "../controllers/adminControllers/adminController";
+import {verifyAssessmentToken}     from "../middleware/assessment"
+import { Router } from "express";
+import { authenticateUser } from "../middleware/auth";
+
+const router = Router();
+
+router.get("/questions",authenticateUser, getQuestions);
+router.post("/submit/questions",authenticateUser, submitAnswers);
+router.get('/assessment/:token',getAssessmentLinkByToken); 
+export default router;
+
+
+//adminRoutes.ts
+import { register,getUser,getResult,createQuestion,updateQuestion,deleteQuestion,createAssessmentLink,getAssessmentLinks } from "../../controllers/adminControllers/adminController";
 import { Router } from "express";
 import { authenticateUser,authorizeRoles } from "../../middleware/auth";
 const router = Router();
@@ -177,20 +413,244 @@ const router = Router();
 router.post("/register-admin", register);
 router.get("/getAllUser",authenticateUser, authorizeRoles("admin"),getUser);
 router.get("/getResult",authenticateUser, authorizeRoles("admin"),getResult);
+router.post("/createQuestion",authenticateUser, authorizeRoles("admin"),createQuestion);
+router.put('/update/:id',authenticateUser, authorizeRoles("admin"), updateQuestion);  
+router.delete('/delete/:id',authenticateUser, authorizeRoles("admin"), deleteQuestion);
+router.post('/assessment-links',authenticateUser, authorizeRoles("admin"), createAssessmentLink);
+router.get('/assessment-links',authenticateUser, authorizeRoles("admin"), getAssessmentLinks);
 
 export default router;
+     
+middleware//assessment.ts
+import { Request, Response, NextFunction } from 'express';
+import { AssessmentLinkModel, AssessmentLinkDocument } from '../models/adminModels/assessmentModel'; // Import the model and document type
+
+// Augment the Request interface to type the `assessmentLink` field
+declare module 'express' {
+  interface Request {
+    assessmentLink?: AssessmentLinkDocument; // Correctly typed field
+  }
+}
+
+export const verifyAssessmentToken = async (req: Request, res: Response, next: NextFunction) => {
+  const { token } = req.params;
+
+  if (!token) {
+    return res.status(400).json({ message: 'Assessment token is missing.' });
+  }
+
+  try {
+    const assessmentLink = await AssessmentLinkModel.findOne({ link: token }); // Search by `link` field (you can adjust this if needed)
+
+    if (!assessmentLink) {
+      return res.status(404).json({ message: 'Invalid assessment token.' });
+    }
+
+    // Optionally check for expiry
+    if (assessmentLink.expiryDate && new Date() > assessmentLink.expiryDate) {
+      return res.status(401).json({ message: 'Assessment link has expired.' });
+    }
+
+    // If the token is valid, attach the assessmentLink data to the request
+    req.assessmentLink = assessmentLink; // This now works because of the typing above
+    next(); // Proceed to the next middleware or route handler
+  } catch (error) {
+    console.error('Error verifying assessment token:', error);
+    return res.status(500).json({ message: 'Internal server error during token verification.' });
+  }
+};
+
+//assessmentModel.ts
+import mongoose, { Schema, Document } from 'mongoose';
+
+// Interface representing the AssessmentLink document
+export interface AssessmentLinkDocument extends Document {
+  link: string;
+  createdBy: mongoose.Schema.Types.ObjectId; // Reference to the admin user
+  questionsToAsk: number;
+  assignedTime: number; // Time in seconds for the entire test
+  expiryDate: Date;
+  userEmail: string;
+  userName: string;
+  createdAt: Date;
+}
+
+// Schema definition for the AssessmentLink
+const AssessmentLinkSchema: Schema<AssessmentLinkDocument> = new Schema({
+  link: { type: String, required: true, unique: true },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  questionsToAsk: { type: Number, required: true, min: 1 },
+  assignedTime: { type: Number, required: true, min: 60 }, // Minimum 1 minute
+  expiryDate: { type: Date, required: true },
+  userEmail: { type: String, required: true },
+  userName: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now },
+});
+
+// Create the AssessmentLink model
+export const AssessmentLinkModel = mongoose.model<AssessmentLinkDocument>('AssessmentLink', AssessmentLinkSchema);
+
+//config.tsx
+
+import Dashboard from "../pages/admin/Dashboard";
+import AssessmentQuestions from "../pages/assessmentQuestions/AssessmentQuestions";
+import TestRules from "../pages/TestInstructions/TestRules";
+import TaskComplete from "../pages/taskCompleted/TaskCompleted";
+import TestResult from "../pages/admin/TestResult";
+import AddQuestionForm from "../pages/admin/AddQuestionsForm";
+import UserTable from "../pages/admin/UserTable";
+import QuestionList from "../pages/admin/QuestionList";
+import AssessmentCreation from "../pages/admin/AssessmentCreation";
+import { ReactElement, useEffect } from "react";
+import { useParams } from "react-router-dom";
+import { setAssessmentToken } from "../features/testSlice";
+import { useAppDispatch } from "../app/hooks";
+import   CreatedAssessment          from '../pages/assessmentQuestions/CreatedAssessment'
+interface Route {
+  path: string;
+  element: ReactElement;
+}
+
+// Public Wrappers
+const PublicTestRulesWrapper = () => {
+  const { token } = useParams();
+  const dispatch = useAppDispatch();
+
+  useEffect(() => {
+    if (token) {
+      dispatch(setAssessmentToken(token));
+    }
+  }, [dispatch, token]);
+
+  return <TestRules />;
+};
+
+const PublicAssessmentQuestionsWrapper = () => {
+  const { token } = useParams();
+  const dispatch = useAppDispatch();
+
+  useEffect(() => {
+    if (token) {
+      dispatch(setAssessmentToken(token));
+    }
+  }, [dispatch, token]);
+
+  return <CreatedAssessment  />;
+};
+
+const PublicTaskCompleteWrapper = () => {
+  const { token } = useParams();
+  const dispatch = useAppDispatch();
+
+  useEffect(() => {
+    if (token) {
+      dispatch(setAssessmentToken(token));
+    }
+  }, [dispatch, token]);
+
+  return <TaskComplete />;
+};
 
 
-package.json
- npm install react-chartjs-2 chart.js
+export const routes: Record<string, Route[]> = {
+  admin: [
+    { path: "/admin/dashboard", element: <Dashboard /> },
+    { path: "/admin/results", element: <TestResult /> },
+    { path: "/admin/questions", element: <AddQuestionForm /> },
+    { path: "/admin/user", element: <UserTable /> },
+    { path: "/admin/getQuestion", element: <QuestionList /> },
+    { path: "/admin/Assessment", element: <AssessmentCreation /> },
+  ],
+  user: [
+    { path: "/rules", element: <TestRules /> },
+    { path: "/questions", element: <AssessmentQuestions /> },
+    { path: "/completed", element: <TaskComplete /> }
+  ],
+  publicAssessment: [
+    { path: "/rules/:token", element: <PublicTestRulesWrapper /> },
+    { path: "/questions/:token", element: <PublicAssessmentQuestionsWrapper /> },
+    { path: "/completed/:token", element: <PublicTaskCompleteWrapper /> }
+    
+  ],
+};
+//app.tsx
+import { Route, Routes, Navigate } from "react-router-dom";
+import "./App.css";
+import Login from "./pages/login/Login";
+import SignUp from "./pages/signUp/Register";
+import PrivateRoute from "./routes/PrivateRoute";
+import ForgotPassword from './pages/login/forgot';
+import ResetPassword from './pages/login/reset';
+import NotFound from "./pages/NotFound";
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import { routes } from "./routes/config";
+import { useAppSelector } from "./app/hooks";
 
-store.ts
+function App() {
+  const user = useAppSelector(state => state.auth.user);
+  const role = user?.role || localStorage.getItem("role");
+
+
+  const publicRoutes = [
+    { path: "/", element: <Login /> },
+    { path: "/sign-up", element: <SignUp /> },
+    { path: "/forgot-password", element: <ForgotPassword /> },
+    { path: "/reset-password/:token", element: <ResetPassword /> },
+    { path: "/page-not-found", element: <NotFound /> },
+  ];
+
+  return (
+    <>
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar
+        toastClassName="custom-toast"
+      />
+      <Routes>
+        {/* Public Auth Routes */}
+        {publicRoutes.map(({ path, element }) => (
+          <Route key={path} path={path} element={element} />
+        ))}
+
+        {/* Public Assessment Routes */}
+        {routes.publicAssessment?.map(({ path, element }) => (
+          <Route key={path} path={path} element={element} />
+        ))}
+
+        {/* Private Routes Based on Role */}
+        {role &&
+          routes[role]?.map(({ path, element }) => (
+            <Route
+              key={path}
+              path={path}
+              element={<PrivateRoute>{element}</PrivateRoute>}
+            />
+          ))}
+
+        {/* Fallback Route */}
+        <Route
+          path="*"
+          element={<Navigate to={role ? "/page-not-found" : "/"} replace />}
+        />
+      </Routes>
+    </>
+  );
+}
+
+export default App;
+
+//store.ts
 import { configureStore } from '@reduxjs/toolkit'
 import authReducer from '../features/authSlice';
 import testReducer from '../features/testSlice';
 import questionReducer from '../features/questionSlice';
 import adminUserReducer from '../features/adminUserSlice';
-import  fetchTestResults  from '../features/admin/fetchTestResults';
+import  fetchTestResults  from '../features/admin/fetchTestResultSlice';
+import  questionsReducer   from '../features/admin/adminQuestionSlice'
+import updateQuestionReducer from '../features/admin/updateQuestionSlice';
+import assessmentLinksReducer from '../features/admin/assessmentLLinkSlice';
 export const store = configureStore({
     reducer: {
      auth: authReducer,
@@ -198,458 +658,460 @@ export const store = configureStore({
      test:testReducer,
      adminUsers: adminUserReducer,
      results:fetchTestResults,
+    question: questionsReducer,
+    update: updateQuestionReducer,
+    assessmentLinks: assessmentLinksReducer,
     },
   })
   export type RootState = ReturnType<typeof store.getState>;
 
   export type AppDispatch = typeof store.dispatch;
 
-adminUserSlice.ts
+questionSlice.ts
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { Questions } from '../types/questionstypes'; 
+import { RootState } from '../app/store';
 import axios from 'axios';
 const API_URL = import.meta.env.VITE_BACKEND_URL as string;
-export interface UserData {
-  name: string;
-  email: string;
-  dateOfJoining: string;
-  isActive: boolean;    
-  role: string; 
+
+interface QuestionState {
+    questions: Questions[];
+    loading: boolean;
+    error: string | null;
+}
+const initialState: QuestionState = {
+    questions: [],
+    loading: false,
+    error: null,
 }
 
-export const fetchAdminUsers = createAsyncThunk('admin/fetchUsers', async (_, thunkAPI) => {
-    try {
-      const token = localStorage.getItem('token');
-  
-      if (!token) {
-        return thunkAPI.rejectWithValue('No token found');
-      }
-  
-      const response = await axios.get<UserData[]>(`${API_URL}/api/admin/getAllUser`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-  
-      return response.data;
-    } catch (error: any) {
-      console.error('Error fetching users:', error);
-      return thunkAPI.rejectWithValue(error.response?.data?.message || 'Failed to fetch users');
+export const fetchQuestions = createAsyncThunk(
+    'questions/fetch',
+    async (_, { getState, rejectWithValue }) => {
+        try {
+            const { auth } = getState() as RootState; 
+            const token = auth?.token; 
+            if (!token) {
+                return rejectWithValue('Authentication token not found.');
+            }
+            const response = await axios.get(`${API_URL}/api/ques/questions`, { 
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+            await new Promise((resolve)=>setInterval(resolve,4000));
+            return response.data;
+        } catch (error: any) {
+            return rejectWithValue(error.response?.data?.message || 'Failed to fetch questions');
+        }
     }
-  });
-const adminUserSlice = createSlice({
-  name: 'adminUsers',
-  initialState: {
-    users: [] as UserData[],
-    loading: false,
-    error: null as string | null,
-  },
-  reducers: {},
-  extraReducers: (builder) => {
-    builder
-      .addCase(fetchAdminUsers.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchAdminUsers.fulfilled, (state, action) => {
-        state.loading = false;
-        state.users = action.payload;
-      })
-      .addCase(fetchAdminUsers.rejected, (state, action) => {
-        state.loading = false;
-        state.error = (action.payload as string) || "Error fetching users";
-      });      
-  },
+);
+
+const questionSlice = createSlice({
+    name: 'questions',
+    initialState,
+    reducers: {}, 
+    extraReducers: (builder) => {
+        builder
+            .addCase(fetchQuestions.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(fetchQuestions.fulfilled, (state, action) => {
+                state.loading = false;
+                state.questions = action.payload;
+            })
+            .addCase(fetchQuestions.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload as string;
+            });
+    },
 });
-export default adminUserSlice.reducer;
 
-dashboard.tsx
-import React, { useEffect, useState, useRef } from 'react';
+
+export const selectQuestions = (state: RootState) => state.questions.questions; 
+export const selectQuestionsLoading = (state: RootState) => state.questions.loading;
+export const selectQuestionsError = (state: RootState) => state.questions.error;
+export const selectTotalQuestions = (state: RootState) => state.questions.questions.length;
+
+export default questionSlice.reducer;
+
+testslice.ts
+
+import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
+import { Answers, TestResult, Questions } from '../types/questionstypes';
+import { RootState } from '../app/store';
+import axios from 'axios';
+const API_URL = import.meta.env.VITE_BACKEND_URL as string;
+
+type AnswerDetail = { selectedOption: number; submittedAt: string; timeTaken: number };
+type QuestionStatus = 'pending' | 'active' | 'answered' | 'skipped';
+
+interface TestState {
+    assessmentToken: string | null;
+    currentQuestionIndex: number;
+    answers: { [questionId: string]: AnswerDetail | null }; 
+    questionStatuses: { [questionId: string]: QuestionStatus }; 
+    questionExpiryTimes: { [questionId: string]: number | null }; 
+    questionStartTimes: { [questionId: string]: number | null }; 
+    startTime: string | null;
+    endTime: string | null;
+    submitLoading: boolean;
+    submitError: string | null;
+    results: TestResult | null;
+    allQuestionIds: string[];
+    isTestSubmitted: boolean; 
+    duration: number;
+}
+
+const QUESTION_DURATION_MS = 60 * 1000; 
+
+const initialState: TestState = {
+    assessmentToken: null,
+    currentQuestionIndex: 0,
+    answers: {},
+    questionStatuses: {},
+    questionExpiryTimes: {},
+    questionStartTimes: {}, 
+    startTime: null,
+    endTime: null,
+    submitLoading: false,
+    submitError: null,
+    results: null,
+    allQuestionIds: [],
+    isTestSubmitted: false,
+    duration: 0,
+};
+
+export const submitTest = createAsyncThunk(
+    'test/submit',
+    async (_, { getState, rejectWithValue }) => {
+        try {
+            const { auth, test } = getState() as RootState;
+            const token = auth.token;
+            const answersArray: Answers[] = Object.entries(test.answers)
+                .filter(([, answer]) => answer !== null)
+                .map(([questionId, answer]) => ({
+                    questionId,
+                    selectedOption: (answer as any).selectedOption,
+                    submittedAt: (answer as any).submittedAt,
+                    timeTaken: (answer as any).timeTaken,
+                }));
+
+            const response = await axios.post(
+                `${API_URL}/api/ques/submit/questions`,
+                {
+                    answers: answersArray,
+                    startTime: test.startTime ? new Date(test.startTime).toISOString() : null,
+                },
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
+            );
+            return response.data;
+        } catch (error: any) {
+            return rejectWithValue(error.response.data.message || 'Failed to submit answers');
+        }
+    }
+);
+
+
+const testSlice = createSlice({
+    name: 'test',
+    initialState,
+    reducers: {
+        setAssessmentToken: (state, action: PayloadAction<string | null>) => {
+            state.assessmentToken = action.payload;
+          },
+          setTestDuration: (state, action: PayloadAction<number>) => {
+            state.duration = action.payload;
+          },
+      
+        startTest: (state, action: PayloadAction<{ questions: Questions[] }>) => {
+            const questionIds = action.payload.questions.map(q => q._id);
+            const now = Date.now();
+            state.allQuestionIds = questionIds;
+            state.currentQuestionIndex = 0;
+            state.answers = {};
+            state.startTime = new Date(now).toISOString();
+            state.endTime = null;
+            state.results = null;
+            state.submitError = null;
+            state.submitLoading = false;
+            state.isTestSubmitted = false; 
+
+          
+            state.questionStatuses = {};
+            state.questionExpiryTimes = {};
+            state.questionStartTimes = {};
+            questionIds.forEach((id, index) => {
+                const isActive = index === 0;
+                state.questionStatuses[id] = isActive ? 'active' : 'pending';
+                state.questionExpiryTimes[id] = isActive ? now + QUESTION_DURATION_MS : null;
+                state.questionStartTimes[id] = isActive ? now : null; 
+            });
+        },
+
+       
+        goToQuestion: (state, action: PayloadAction<{ index: number; questionId: string }>) => {
+            const { index, questionId } = action.payload;
+            const targetStatus = state.questionStatuses[questionId];
+
+         
+            state.currentQuestionIndex = index;
+
+      
+            if (targetStatus === 'pending') {
+                const now = Date.now();
+                state.questionStatuses[questionId] = 'active';
+                state.questionExpiryTimes[questionId] = now + QUESTION_DURATION_MS;
+                state.questionStartTimes[questionId] = now; 
+            }
+           
+        },
+        
+        recordAnswer: (state, action: PayloadAction<{ questionId: string; selectedOption: number }>) => {
+            const { questionId, selectedOption } = action.payload;
+            const currentStatus = state.questionStatuses[questionId];
+
+
+            if (currentStatus === 'active') {
+                const now = Date.now();
+                const startTime = state.questionStartTimes[questionId];
+                const timeTaken = startTime ? Math.max(0, Math.floor((now - startTime) / 1000)) : 0; 
+
+                state.answers[questionId] = {
+                    selectedOption,
+                    submittedAt: new Date(now).toISOString(),
+                    timeTaken: timeTaken,
+                };
+                state.questionStatuses[questionId] = 'answered';
+                state.questionExpiryTimes[questionId] = null;
+                state.questionStartTimes[questionId] = null; 
+            }
+           
+        },
+
+       
+        markQuestionSkipped: (state, action: PayloadAction<{ questionId: string }>) => {
+            const { questionId } = action.payload;
+            const currentStatus = state.questionStatuses[questionId];
+
+           
+            if (currentStatus === 'active') {
+                state.answers[questionId] = null; 
+                state.questionStatuses[questionId] = 'skipped';
+                state.questionExpiryTimes[questionId] = null; 
+                state.questionStartTimes[questionId] = null; 
+            }
+        },
+
+        resetTest: (state) => {
+            Object.assign(state, initialState);
+        },
+    },
+    extraReducers: (builder) => {
+        builder
+            .addCase(submitTest.pending, (state) => {
+                state.submitLoading = true;
+                state.submitError = null;
+                state.endTime = null;
+            })
+            .addCase(submitTest.fulfilled, (state, action) => {
+                state.submitLoading = false;
+                state.endTime = new Date().toISOString();
+                state.results = action.payload;
+                state.isTestSubmitted = true; 
+                state.questionExpiryTimes = {};
+            })
+            .addCase(submitTest.rejected, (state, action) => {
+                state.submitLoading = false;
+                state.submitError = action.payload as string;
+                state.endTime = null;
+             
+            });
+    },
+});
+
+export const {
+    startTest,
+    goToQuestion,
+    recordAnswer,
+    markQuestionSkipped,
+    resetTest,
+} = testSlice.actions;
+
+export const selectCurrentQuestionIndex = (state: RootState) => state.test.currentQuestionIndex;
+export const selectAllQuestionIds = (state: RootState) => state.test.allQuestionIds;
+export const selectQuestionStatuses = (state: RootState) => state.test.questionStatuses;
+export const selectAnswers = (state: RootState) => state.test.answers;
+export const selectStartTime = (state: RootState) => state.test.startTime;
+export const selectSubmitLoading = (state: RootState) => state.test.submitLoading;
+export const selectSubmitError = (state: RootState) => state.test.submitError;
+export const selectTestResults = (state: RootState) => state.test.results;
+export const selectQuestionStatus = (state: RootState, questionId: string): QuestionStatus | undefined => state.test.questionStatuses[questionId];
+
+export const selectArePendingQuestionsLeft = (state: RootState): boolean => {
+    return Object.values(state.test.questionStatuses).some(status => status === 'pending');
+};
+export const selectTestDuration = (state: RootState) => state.test.duration;
+export const selectIsTestSubmitted = (state: RootState): boolean => state.test.isTestSubmitted;
+export const selectQuestionExpiryTime = (state: RootState, questionId: string): number | null => state.test.questionExpiryTimes[questionId] ?? null;
+export const selectAreAnyTimersActive = (state: RootState): boolean => {
+    return Object.values(state.test.questionExpiryTimes).some(time => time !== null);
+}
+export const { setAssessmentToken } = testSlice.actions;
+
+export const selectAssessmentToken = (state: RootState) => state.test.assessmentToken;
+export const { setTestDuration } = testSlice.actions;
+
+export default testSlice.reducer;
+
+avtar.tsx
+
+import React, { useState, useRef ,useEffect} from 'react';
+import { useNavigate } from 'react-router-dom';
+import { logout } from '../../features/authSlice';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
-import { fetchAdminUsers } from '../../features/adminUserSlice';
-import Logo from "../../../public/static/img/logo.svg";
-import { useNavigate } from "react-router-dom";
-import { logout } from "../../features/authSlice";
-import { Bar } from 'react-chartjs-2';
-import {
-  Chart as ChartJS,
-  Title,
-  Tooltip,
-  Legend,
-  BarElement,
-  CategoryScale,
-  LinearScale,
-} from 'chart.js';
-import TestResult from './TestResult';
 
-ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale);
-
-const Dashboard: React.FC = () => {
+const Avatar: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { users, loading, error } = useAppSelector((state) => state.adminUsers);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
-  const [showResults, setShowResults] = useState(false);
-  const [showChart, setShowChart] = useState(true);
-  const [showAnalytics, setShowAnalytics] = useState(true);
-  const [showStats, setShowStats] = useState(true);
-
   const user = useAppSelector((state) => state.auth.user);
   const userEmail = user?.email || 'U';
   const avtarLetter = userEmail.charAt(0).toUpperCase();
-
-  const toggleDropdown = () => setDropdownOpen(!dropdownOpen);
-
-  useEffect(() => {
-    dispatch(fetchAdminUsers());
-  }, [dispatch]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setDropdownOpen(false);
-      }
-    };
-    if (dropdownOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [dropdownOpen]);
-
-  const handleResultsClick = () => {
-    setShowResults(true);
-    setShowChart(false);
-    setShowAnalytics(false);
-    setShowStats(false);
-  };
-
-  const handleUsersClick = () => {
-    setShowResults(false);
-    setShowChart(false);
-    setShowAnalytics(false);
-    setShowStats(false);
-  };
-
-  const handleDashboardClick = () => {
-    setShowResults(false);
-    setShowChart(true);
-    setShowAnalytics(true);
-    setShowStats(true);
-  };
-
-  const statsData = {
-    totalUsers: users.length,
-    activeUsers: users.filter(user => user.isActive).length,
-    admins: users.filter(user => user.role === 'admin').length,
-  };
-
-  // Grouping users/admins by week
-  const getWeekKey = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const startOfYear = new Date(date.getFullYear(), 0, 1);
-    const week = Math.ceil((((date.getTime() - startOfYear.getTime()) / 86400000) + startOfYear.getDay() + 1) / 7);
-    return `Week ${week}`;
-  };
-
-  const weeklyUserData: Record<string, number> = {};
-  const weeklyAdminData: Record<string, number> = {};
-
-  users.forEach((user) => {
-    const week = getWeekKey(user.dateOfJoining);
-    if (user.role === 'admin') {
-      weeklyAdminData[week] = (weeklyAdminData[week] || 0) + 1;
-    } else {
-      weeklyUserData[week] = (weeklyUserData[week] || 0) + 1;
-    }
-  });
-
-  const sortedWeeks = Array.from(new Set([...Object.keys(weeklyUserData), ...Object.keys(weeklyAdminData)])).sort();
-
-  const userChartData = {
-    labels: sortedWeeks,
-    datasets: [{
-      label: 'Users Joined',
-      data: sortedWeeks.map(week => weeklyUserData[week] || 0),
-      backgroundColor: '#42a5f5',
-      borderColor: '#42a5f5',
-      borderWidth: 1,
-    }]
-  };
-
-  const adminChartData = {
-    labels: sortedWeeks,
-    datasets: [{
-      label: 'Admins Joined',
-      data: sortedWeeks.map(week => weeklyAdminData[week] || 0),
-      backgroundColor: '#ff7043',
-      borderColor: '#ff7043',
-      borderWidth: 1,
-    }]
-  };
-
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-  };
-
-  return (
-    <div className="dashboard-container">
-      <nav className="sidebar">
-        <div className="logo-container">
-          <img src={Logo} alt="Logo" className="logo" />
-        </div>
-        <ul className="nav-links">
-          <li><button onClick={handleDashboardClick}>Dashboard</button></li>
-          <li><button onClick={handleUsersClick}>Users</button></li>
-          <li><button onClick={handleResultsClick}>Results</button></li>
-          <li><button onClick={() => navigate('/admin/dashboard')}>Settings</button></li>
-        </ul>
-      </nav>
-
-      <div className="main-content">
-        <header className="header">
-          {(!showResults && !showAnalytics) && <h2>Registered Users</h2>}
-          <div className="position-absolute top-0 end-0 m-4">
-            <div className="position-relative" ref={dropdownRef}>
-              <div
-                onClick={toggleDropdown}
-                className="primary-btn text-white rounded-circle d-flex align-items-center justify-content-center"
-                style={{
-                  width: "40px",
-                  height: "40px",
-                  cursor: "pointer",
-                  fontWeight: "bold",
-                  fontSize: "18px",
-                }}
-              >
-                {avtarLetter}
-              </div>
-
-              {dropdownOpen && (
-                <div
-                  className="position-absolute end-0 mt-2 bg-white border rounded shadow-sm"
-                  style={{ minWidth: "120px", zIndex: 10 }}
-                >
-                  <button
-                    onClick={() => {
-                      dispatch(logout());
-                      navigate("/");
-                    }}
-                    className="dropdown-item text-start px-3 py-2 w-100 border-0 bg-transparent"
-                  >
-                    Logout
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </header>
-
-        {loading && <p>Loading...</p>}
-        {error && <p>Error: {error}</p>}
-
-        {showStats && (
-          <div className="container py-4">
-            <div className="row">
-              <div className="col-lg-4 col-md-6 mb-4">
-                <div className="card shadow-lg p-3 text-center">
-                  <h5>Total Users</h5>
-                  <p className="display-4">{statsData.totalUsers}</p>
-                </div>
-              </div>
-              <div className="col-lg-4 col-md-6 mb-4">
-                <div className="card shadow-lg p-3 text-center">
-                  <h5>Active Users</h5>
-                  <p className="display-4">{statsData.activeUsers}</p>
-                </div>
-              </div>
-              <div className="col-lg-4 col-md-6 mb-4">
-                <div className="card shadow-lg p-3 text-center">
-                  <h5>Admins</h5>
-                  <p className="display-4">{statsData.admins}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {!loading && users.length > 0 && !showResults && !showChart && (
-          <div className="user-table">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Date of Joining</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((user, idx) => (
-                  <tr key={idx}>
-                    <td>{user.name}</td>
-                    <td>{user.email}</td>
-                    <td>{new Date(user.dateOfJoining).toLocaleDateString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {showAnalytics && (
-          <div className="container py-4">
-            <h3 className="text-center mb-4">User Analytics</h3>
-            <div className="row">
-              <div className="col-lg-6 mb-4">
-                <div className="card shadow-lg p-3">
-                  <h5 className="text-center">Users Joined Per Week</h5>
-                  <div style={{ height: '300px' }}>
-                    <Bar data={userChartData} options={chartOptions} />
-                  </div>
-                </div>
-              </div>
-              <div className="col-lg-6 mb-4">
-                <div className="card shadow-lg p-3">
-                  <h5 className="text-center">Admins Joined Per Week</h5>
-                  <div style={{ height: '300px' }}>
-                    <Bar data={adminChartData} options={chartOptions} />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {showResults && <TestResult />}
-      </div>
-    </div>
-  );
-};
-
-export default Dashboard;
-
- admin/testresult.tsx
-import React, { useEffect, useState } from 'react';
-import { Bar } from 'react-chartjs-2';
-import {
-  Chart,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-} from 'chart.js';
-import { useAppDispatch, useAppSelector } from '../../app/hooks';
-import { fetchTestResults } from '../../features/admin/fetchTestResults';
-
-// Register chart components
-Chart.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
-
-const TestResult: React.FC = () => {
-  const dispatch = useAppDispatch();
-  const { results, loading, error } = useAppSelector((state) => state.results);
-  const [selectedResult, setSelectedResult] = useState<any | null>(null);
-
-  useEffect(() => {
-    dispatch(fetchTestResults());
-  }, [dispatch]);
-
-  const handleAnalyticsClick = (res: any) => {
-    setSelectedResult(res);
-  };
-
-  const chartData = selectedResult
-    ? {
-        labels: ['Correct Answers', 'Total Time (sec)'],
-        datasets: [
-          {
-            label: selectedResult.user?.name || 'User',
-            data: [selectedResult.correctAnswerCount, selectedResult.totalTimeTaken],
-            backgroundColor: ['#36a2eb', '#ff6384'],
-          },
-        ],
-      }
-    : null;
-
-  return (
-    <div className="container py-5">
-      <h2 className="text-center mb-5 display-4 font-weight-bold text-primary">
-        Test Results
-      </h2>
-
-      {loading && <p className="text-center text-muted">Loading...</p>}
-      {error && <p className="text-center text-danger">{error}</p>}
-
-      {!loading && results.length > 0 ? (
-        <>
-          <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-            {results.map((res: any, idx: number) => (
-              <div key={idx} className="col">
-                <div className="card shadow-lg border-light rounded-3 p-3">
-                  <div className="card-body">
-                    <h3 className="card-title text-primary mb-4">
-                      {res.user?.name || 'Unknown User'}
-                    </h3>
-                    <p><strong>Email:</strong> {res.user?.email || 'N/A'}</p>
-                    <p><strong>Score:</strong> {res.correctAnswerCount}</p>
-                    <p><strong>Total Time:</strong> {res.totalTimeTaken} seconds</p>
-                    <p><strong>Start Time:</strong> {res.startTime ? new Date(res.startTime).toLocaleString() : 'N/A'}</p>
-                    <p><strong>End Time:</strong> {res.endTime ? new Date(res.endTime).toLocaleString() : 'N/A'}</p>
-                    <button
-                      className="btn btn-outline-primary mt-3"
-                      onClick={() => handleAnalyticsClick(res)}
-                    >
-                      View Analytics
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {selectedResult && (
-            <div className="mt-5">
-              <h4 className="text-center mb-4">
-                Analytics for {selectedResult.user?.name}
-              </h4>
-              <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-                <Bar data={chartData!} />
-              </div>
-            </div>
-          )}
-        </>
-      ) : (
-        !loading && <p className="text-center text-muted">No results found.</p>
-      )}
-    </div>
-  );
-};
-
-export default TestResult;
-
-testRules.tsx
-import { Link, useNavigate } from "react-router-dom";
-import { useState, useRef, useEffect } from "react";
-import Logo from "../../../public/static/img/logo.svg";
-import check from "../../../public/static/img/icon/ic-check.svg";
-import { useAppSelector, useAppDispatch } from "../../app/hooks";
-import { logout } from "../../features/authSlice";
-
-const TestRules = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
-  const dispatch = useAppDispatch();
-  const navigate = useNavigate();
-  const user = useAppSelector((state) => state.auth.user);
-  const userEmail = user?.email || "U";
-  const avtarLetter = userEmail.charAt(0).toUpperCase();
 
-  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [mediaError, setMediaError] = useState<string | null>(null);
+  const toggleDropdown = () => setDropdownOpen(!dropdownOpen);
+     useEffect(() => {
+             const handleClickOutside = (event: MouseEvent) => {
+               if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                 setDropdownOpen(false);
+               }
+             };
+           
+             if (dropdownOpen) {
+               document.addEventListener("mousedown", handleClickOutside);
+             }
+           
+             return () => {
+               document.removeEventListener("mousedown", handleClickOutside);
+             };
+           }, [dropdownOpen]);
+  
+  return (
+    <div className="position-absolute top-0 end-0 m-4">
+      <div className="position-relative" ref={dropdownRef}>
+        <div
+          onClick={toggleDropdown}
+          className="primary-btn text-white rounded-circle d-flex align-items-center justify-content-center"
+          style={{
+            width: "40px",
+            height: "40px",
+            cursor: "pointer",
+            fontWeight: "bold",
+            fontSize: "18px",
+          }}
+        >
+          {avtarLetter}
+        </div>
+
+        {dropdownOpen && (
+          <div
+            className="position-absolute end-0 mt-2 bg-white border rounded shadow-sm"
+            style={{ minWidth: "120px", zIndex: 10 }}
+          >
+            <button
+              onClick={() => {
+                dispatch(logout());
+                navigate("/");
+              }}
+              className="dropdown-item text-start px-3 py-2 w-100 border-0 bg-transparent"
+            >
+              Logout
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default Avatar;
+sidebar.tsx
+
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import Logo from "../../../public/static/img/logo.svg";
+const Sidebar: React.FC = () => {
+  const navigate = useNavigate();
+
+  return (
+    <nav className="sidebar">
+      <div className="logo-container">
+        <img src={Logo} alt="Logo" className="logo" />
+      </div>
+      <ul className="nav-links">
+        <li><button onClick={() => navigate('/admin/dashboard')}>Dashboard</button></li>
+        <li><button onClick={() => navigate('/admin/user')}>Users</button></li>
+        <li><button onClick={() => navigate('/admin/results')}>Results</button></li>
+        <li><button onClick={() => navigate('/admin/questions')}>Add Question</button></li>
+        <li><button onClick={() => navigate('/admin/getQuestion')}>Update Question</button></li>
+        <li><button onClick={() => navigate('/admin/Assessment')}>Assessment</button></li>
+        <li><button onClick={() => navigate('/admin/dashboard')}>Settings</button></li>
+      </ul>
+    </nav>
+  );
+};
+
+export default Sidebar;
+
+
+taskCompleted.tsx
+import { useState, useRef, useEffect } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import CheckIcon from "../../../public/static/img/icon/ic-check.svg";
+import Logo from "../../../public/static/img/logo.svg";
+import { useAppDispatch, useAppSelector } from "../../app/hooks";
+import { selectTestResults, resetTest } from "../../features/testSlice";
+import { logout } from "../../features/authSlice";
+import { selectQuestions } from "../../features/questionSlice";
+import axios from "axios";
+
+interface AssessmentLinkData {
+  assessmentLink: {
+    _id: string;
+    link: string;
+    createdBy: string;
+    questionsToAsk: number;
+    assignedTime: number;
+    expiryDate: string;
+    userEmail: string;
+    userName: string;
+    createdAt: string;
+  };
+  questions: any[]; // Adjust type based on your Question model
+  assignedTime: number;
+}
+
+const TaskCompleted = () => {
+  const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const results = useAppSelector(selectTestResults);
+  const allQuestions = useAppSelector(selectQuestions);
+  const [totalQuestionCount, setTotalQuestionCount] = useState<number>(allQuestions.length);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const toggleDropdown = () => setDropdownOpen(!dropdownOpen);
+  const { token } = useParams<{ token?: string }>();
+  const user = useAppSelector((state) => state.auth.user);
+  const userEmail = user?.email || 'U';
+  const avtarLetter = userEmail.charAt(0).toUpperCase();
+  const [assessmentLoading, setAssessmentLoading] = useState(false);
+  const [assessmentError, setAssessmentError] = useState<string | null>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -667,310 +1129,1420 @@ const TestRules = () => {
     };
   }, [dropdownOpen]);
 
-  // Camera and microphone permission request
   useEffect(() => {
-    const requestMediaAccess = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        setMediaStream(stream);
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-      } catch (err: any) {
-        console.error("Error accessing media devices:", err);
-        setMediaError("Camera and microphone access is required to proceed.");
-      }
-    };
+    if (token) {
+      setAssessmentLoading(true);
+      axios.get(`http://localhost:5000/api/ques/assessment/${token}`)
+        .then((response) => {
+          const data: AssessmentLinkData = response.data;
+          setTotalQuestionCount(data.assessmentLink.questionsToAsk);
+          setAssessmentLoading(false);
+        })
+        .catch((error) => {
+          console.error("Error fetching assessment:", error);
+          setAssessmentError(error.response?.data?.message || "Failed to fetch assessment details.");
+          setAssessmentLoading(false);
+          // Fallback to the state value if API call fails
+          setTotalQuestionCount(allQuestions.length);
+        });
+    } else {
+      // If no token, use the total questions from the state
+      setTotalQuestionCount(allQuestions.length);
+    }
+  }, [token, allQuestions]);
 
-    requestMediaAccess();
+  useEffect(() => {
+    if (!results) {
+      navigate("/questions");
+    }
+  }, [navigate, results]);
 
-    return () => {
-      mediaStream?.getTracks().forEach((track) => track.stop());
-    };
-  }, []);
+  const handleRetry = () => {
+    dispatch(resetTest());
+    navigate("/questions");
+  };
+
+  if (!results) {
+    return <div>Loading results...</div>;
+  }
+
+  const handleLogout = () => {
+    dispatch(logout());
+    navigate("/");
+  };
+
+  const totalTimeInMinutes = Math.floor(results.totalTimeTaken / 60);
+  const totalTimeInSeconds = results.totalTimeTaken % 60;
 
   return (
-    <section>
-      {/* Dropdown avatar menu */}
-      <div className="position-absolute top-0 end-0 m-4">
-        <div className="position-relative" ref={dropdownRef}>
-          <div
-            onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="primary-btn text-white rounded-circle d-flex align-items-center justify-content-center"
-            style={{
-              width: "40px",
-              height: "40px",
-              cursor: "pointer",
-              fontWeight: "bold",
-              fontSize: "18px",
-            }}
-          >
-            {avtarLetter}
-          </div>
-          {dropdownOpen && (
+    <>
+      {/* Task Completed Start */}
+      <section className="container-fluid min-vh-100 d-flex align-items-center justify-content-center screen-bg">
+        <div className="position-absolute top-0 end-0 m-4">
+          <div className="position-relative" ref={dropdownRef}>
             <div
-              className="position-absolute end-0 mt-2 bg-white border rounded shadow-sm"
-              style={{ minWidth: "120px", zIndex: 10 }}
+              onClick={toggleDropdown}
+              className="primary-btn text-white rounded-circle d-flex align-items-center justify-content-center"
+              style={{
+                width: "40px",
+                height: "40px",
+                cursor: "pointer",
+                fontWeight: "bold",
+                fontSize: "18px",
+              }}
             >
-              <button
-                onClick={() => {
-                  dispatch(logout());
-                  navigate("/");
-                }}
-                className="dropdown-item text-start px-3 py-2 w-100 border-0 bg-transparent"
+              {avtarLetter}
+            </div>
+
+            {dropdownOpen && (
+              <div
+                className="position-absolute end-0 mt-2 bg-white border rounded shadow-sm"
+                style={{ minWidth: "120px", zIndex: 10 }}
               >
-                Logout
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <section className="testrules-page-glass d-flex align-items-center justify-content-center py-5 px-3">
-        <div className="rules-container p-4 p-md-5 glass-card text-dark">
-          <div className="text-center mb-5">
-            <img src={Logo} alt="Logo" className="img-fluid logo mb-3" />
-            <h2 className="fw-bold display-6 gradient-text">Before You Begin</h2>
-            <p className="text-muted fs-6">Please read all instructions carefully before starting the test.</p>
-          </div>
-
-          {/* Guidelines Section */}
-          <div className="row gx-4 gy-4">
-            <div className="col-md-6">
-              <h5 className="text-primary mb-3"> General Guidelines</h5>
-              <div className="rule-card">
-                <p><img src={check} alt="check" className="check-icon me-2" />Multiple-choice questions.</p>
-                <p><img src={check} alt="check" className="check-icon me-2" />One correct answer per question.</p>
-                <p><img src={check} alt="check" className="check-icon me-2" />Navigation allowed, but timer is active.</p>
-                <p><img src={check} alt="check" className="check-icon me-2" />Avoid refreshing the page.</p>
-                <p><img src={check} alt="check" className="check-icon me-2" />Stable internet is essential.</p>
+                <button
+                  onClick={() => {
+                    dispatch(logout());
+                    navigate("/");
+                  }}
+                  className="dropdown-item text-start px-3 py-2 w-100 border-0 bg-transparent"
+                >
+                  Logout
+                </button>
               </div>
-            </div>
-            <div className="col-md-6">
-              <h5 className="text-primary mb-3">Timing & Scoring</h5>
-              <div className="rule-card">
-                <p><img src={check} alt="check" className="check-icon me-2" />Test is timed. Timer is always visible.</p>
-                <p><img src={check} alt="check" className="check-icon me-2" />3 total questions — attempt all.</p>
-                <p><img src={check} alt="check" className="check-icon me-2" />1 point per correct answer.</p>
-                <p><img src={check} alt="check" className="check-icon me-2" />Negative marking may apply.</p>
-                <p><img src={check} alt="check" className="check-icon me-2" />Unanswered = No score.</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Camera and Audio Preview */}
-          <div className="text-center my-5">
-            <h5 className="text-primary mb-3">Camera & Microphone Check</h5>
-            {mediaError ? (
-              <p className="text-danger">{mediaError}</p>
-            ) : (
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="rounded shadow"
-                style={{ width: "300px", height: "200px", objectFit: "cover" }}
-              />
             )}
           </div>
+        </div>
+        <div className="max-w-xxl mx-auto my-sm-5 my-4 px-3">
+          <Link to={"/"} className="d-flex align-items-center justify-content-center mb-3 w-fit mx-auto">
+            <img src={Logo} alt="Logo" className="img-fluid logo" />
+          </Link>
+          <div className="bg-white py-5 px-sm-4 px-3 rounded-4 box-shadow lightgray-border text-center">
+            <img src={CheckIcon} alt="Task Completed" width={70} className="mb-3" />
+            <h5 className="fs-4 primary-color fw-bold mb-3">Test Completed Successfully</h5>
 
-          {/* Start Button */}
-          <div className="text-center mt-4">
-            <Link to="/questions" className="btn start-btn btn-lg px-5 py-3 rounded-pill shadow-lg">
-              Start Test
-            </Link>
-            <p className="mt-3 text-muted">Good luck, you’ve got this!</p>
+            <div className="p-sm-4 p-3 rounded-4 lightgray-border mx-auto mb-4 w-fit d-flex gap-5 justify-content-center align-items-center">
+              <div>
+                <h6 className="fs-18 fw-bold">Your Scrore</h6>
+                <p className="mb-0 fw-semibold text-secondary">
+                  {results.correctAnswerCount}/{totalQuestionCount}
+                </p>
+              </div>
+
+              <div className="lightgray-border align-self-stretch"></div>
+
+              <div>
+                <h6 className="fs-18 fw-bold">Time Taken</h6>
+                <p className="mb-0 fw-semibold text-secondary">
+                  {totalTimeInMinutes}min {totalTimeInSeconds}sec
+                </p>
+              </div>
+            </div>
+            <div className="d-flex gap-3 justify-content-center">
+              <button type="button" className="btn primary-btn text-white w-fit  fw-semibold px-5" onClick={handleLogout}>
+                Close
+              </button>
+
+              <button type="button" className="btn primary-btn text-white w-fit  fw-semibold px-5" onClick={handleRetry}>
+                Retry
+              </button>
+            </div>
           </div>
         </div>
       </section>
+      {/* Task Completed End */}
+    </>
+  );
+};
+
+export default TaskCompleted;
+
+TestRulles.tsx
+
+import { useNavigate ,useParams} from "react-router-dom";
+import { useState,useRef,useEffect } from "react"; 
+import Logo from "../../../public/static/img/logo.svg";
+import check from "../../../public/static/img/icon/ic-check.svg"
+import {  useAppSelector ,useAppDispatch} from "../../app/hooks";
+import { logout } from "../../features/authSlice";
+
+const TestRules = () => {
+  const { token } = useParams<{ token: string }>();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+   const dispatch = useAppDispatch();
+      const navigate = useNavigate();
+  const toggleDropdown = () => setDropdownOpen(!dropdownOpen);
+   const user=useAppSelector((state)=>state.auth.user);
+   const userEmail=user?.email||'U';
+   const avtarLetter=userEmail.charAt(0).toUpperCase();
+    useEffect(() => {
+           const handleClickOutside = (event: MouseEvent) => {
+             if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+               setDropdownOpen(false);
+             }
+           };
+         
+           if (dropdownOpen) {
+             document.addEventListener("mousedown", handleClickOutside);
+           }
+         
+           return () => {
+             document.removeEventListener("mousedown", handleClickOutside);
+           };
+         }, [dropdownOpen]);
+
+         const handleStart = () => {
+          if (token) {
+            navigate(`/questions/${token}`);
+          } else {
+        navigate('/questions');
+          }
+        };
+      
+  return (
+    <section>
+       <div className="position-absolute top-0 end-0 m-4">
+                   <div className="position-relative" ref={dropdownRef}>
+                    <div
+                      onClick={toggleDropdown}
+                      className="primary-btn text-white rounded-circle d-flex align-items-center justify-content-center"
+                      style={{
+                      width: "40px",
+                      height: "40px",
+                      cursor: "pointer",
+                      fontWeight: "bold",
+                      fontSize: "18px",
+                       }}
+                    >
+                       {avtarLetter}
+                    </div>
+      
+                      {dropdownOpen && (
+                        <div
+                         className="position-absolute end-0 mt-2 bg-white border rounded shadow-sm"
+                        style={{ minWidth: "120px", zIndex: 10 }}
+                        >
+                         <button
+                           onClick={() => {
+                           dispatch(logout());
+                           navigate("/");
+                          }}
+                        className="dropdown-item text-start px-3 py-2 w-100 border-0 bg-transparent"
+                        >
+                        Logout
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  </div>
+                  <section className="testrules-page-glass d-flex align-items-center justify-content-center py-5 px-3">
+                   <div className="rules-container p-4 p-md-5 glass-card text-dark">
+                     <div className="text-center mb-5">
+                      <img src={Logo} alt="Logo" className="img-fluid logo mb-3" />
+                      <h2 className="fw-bold display-6 gradient-text">Before You Begin</h2>
+                      <p className="text-muted fs-6">Please read all instructions carefully before starting the test.</p>
+                  </div>
+
+                   <div className="row gx-4 gy-4">
+                     <div className="col-md-6">
+                      <h5 className="text-primary mb-3"> General Guidelines</h5>
+                       <div className="rule-card">
+                       <p><img src={check} alt="check" className="check-icon me-2" />Multiple-choice questions.</p>
+                       <p><img src={check} alt="check" className="check-icon me-2" />One correct answer per question.</p>
+                       <p><img src={check} alt="check" className="check-icon me-2" />Navigation allowed, but timer is active.</p>
+                       <p><img src={check} alt="check" className="check-icon me-2" />Avoid refreshing the page.</p>
+                       <p><img src={check} alt="check" className="check-icon me-2" />Stable internet is essential.</p>
+                       </div>
+                 </div>
+                 <div className="col-md-6">
+                    <h5 className="text-primary mb-3">Timing & Scoring</h5>
+                    <div className="rule-card">
+                   <p><img src={check} alt="check" className="check-icon me-2" />Test is timed. Timer is always visible.</p>
+                   <p><img src={check} alt="check" className="check-icon me-2" />3 total questions — attempt all.</p>
+                   <p><img src={check} alt="check" className="check-icon me-2" />1 point per correct answer.</p>
+                   <p><img src={check} alt="check" className="check-icon me-2" />Negative marking may apply.</p>
+                   <p><img src={check} alt="check" className="check-icon me-2" />Unanswered = No score.</p>
+              </div>
+             </div>
+            </div>
+
+          <div className="text-center mt-5">
+      <button
+      onClick={handleStart}  
+      className="btn start-btn btn-lg px-5 py-3 rounded-pill shadow-lg">
+         Start Test
+         </button>
+      <p className="mt-3 text-muted">Good luck, you’ve got this! </p>
+    </div>
+  </div>
+</section>
+
+
     </section>
   );
 };
 
 export default TestRules;
 
+adminTestSlice.ts
+// frontend/src/features/testSlice.ts
+import { createSlice, PayloadAction, createSelector } from '@reduxjs/toolkit';
+import { RootState } from '../app/store'; // Assuming RootState is defined here or imported
 
-config.tsx
-import Dashboard from "../pages/admin/Dashboard";
-import AssessmentQuestions from "../pages/assessmentQuestions/AssessmentQuestions";
-import TestRules from "../pages/TestInstructions/TestRules";
-import TaskComplete from "../pages/taskCompleted/TaskCompleted";
-import { ReactElement } from "react";
-import TestResult from "../pages/admin/TestResult";
-interface Route {
-    path: string;
-    element: ReactElement;
-  }
-export const routes: Record<string, Route[]>={
-   
-    admin:[
-        { path:"/admin/dashboard",element:<Dashboard/>},
-        { path:"/admin/results",element:<TestResult/>},
-    ],
-    user:[
-        { path:"/rules",element:<TestRules/>},
-        {path:"/questions" ,element:<AssessmentQuestions/>},
-        {path:"/completed",element:<TaskComplete/>}
-    ],
+// Define the structure of a question within the test state
+// Adjust this interface based on your actual question data structure
+interface TestQuestion {
+    _id: string;
+    question: string;
+    options: string[];
+    // Add other question properties if needed
+}
 
+interface TestState {
+    // Question states handled previously
+    allQuestionIds: string[];
+    questionStatuses: Record<string, 'pending' | 'active' | 'answered' | 'skipped'>;
+    currentQuestionIndex: number;
+    allAnswers: Record<string, { selectedOption: number } | null>;
+    questionExpiryTimes: Record<string, number | null>; // Kept for potential future per-question timers, but not used for total timer logic below
+
+    // New state for total test time
+    testDuration: number | null; // Total assigned time in minutes
+    testStartTime: number | null; // Timestamp when the test started (Date.now())
+
+    // Submission state
+    submitLoading: boolean;
+    submitError: string | null;
+    isTestSubmitted: boolean;
+
+    // General loading/error (might be redundant if questions slice handles this)
+    // loading: boolean;
+    // error: string | null;
+}
+
+const initialState: TestState = {
+    allQuestionIds: [],
+    questionStatuses: {},
+    currentQuestionIndex: 0,
+    allAnswers: {},
+    questionExpiryTimes: {},
+
+    // Total test time state
+    testDuration: null,
+    testStartTime: null,
+
+    // Submission state
+    submitLoading: false,
+    submitError: null,
+    isTestSubmitted: false,
+
+    // loading: false,
+    // error: null,
+};
+
+const testSlice = createSlice({
+    name: 'test',
+    initialState,
+    reducers: {
+        // Modified startTest to accept questions and assigned time
+        startTest: (state, action: PayloadAction<{ questions: TestQuestion[], assignedTime: number }>) => {
+            // Reset state for a new test
+            state.allQuestionIds = [];
+            state.questionStatuses = {};
+            state.allAnswers = {};
+            state.questionExpiryTimes = {}; // Clear any previous timers
+            state.currentQuestionIndex = 0;
+            state.isTestSubmitted = false;
+            state.submitLoading = false;
+            state.submitError = null;
+
+            // Initialize questions state
+            action.payload.questions.forEach(q => {
+                const qId = q._id;
+                state.allQuestionIds.push(qId);
+                state.questionStatuses[qId] = 'pending'; // All start as pending
+                state.allAnswers[qId] = null;
+                state.questionExpiryTimes[qId] = null;
+            });
+
+            // Set total test duration and start time
+            state.testDuration = action.payload.assignedTime; // Duration in minutes
+            state.testStartTime = Date.now(); // Record the start timestamp
+
+            // Automatically activate the first question if available
+            if (state.allQuestionIds.length > 0) {
+                const firstQuestionId = state.allQuestionIds[0];
+                state.questionStatuses[firstQuestionId] = 'active';
+                // No per-question timer set here for the total time logic
+            }
+        },
+        // setTestDuration action might be redundant if startTest sets it,
+        // but keeping it doesn't hurt if it's used elsewhere.
+        setTestDuration: (state, action: PayloadAction<number>) => {
+             state.testDuration = action.payload;
+        },
+        recordAnswer: (state, action: PayloadAction<{ questionId: string; selectedOption: number }>) => {
+            const { questionId, selectedOption } = action.payload;
+            if (state.questionStatuses[questionId] === 'active') {
+                state.allAnswers[questionId] = { selectedOption };
+                state.questionStatuses[questionId] = 'answered';
+                state.questionExpiryTimes[questionId] = null; // Clear expiry time once answered
+            }
+        },
+        markQuestionSkipped: (state, action: PayloadAction<{ questionId: string }>) => {
+            const { questionId } = action.payload;
+             if (state.questionStatuses[questionId] === 'active') {
+                state.questionStatuses[questionId] = 'skipped';
+                state.allAnswers[questionId] = null; // Ensure no answer is recorded
+                state.questionExpiryTimes[questionId] = null; // Clear expiry time once skipped
+             }
+        },
+        goToQuestion: (state, action: PayloadAction<{ index: number; questionId: string }>) => {
+            const { index, questionId } = action.payload;
+
+            // If the current question is active, mark it based on selection or skip
+            const currentQId = state.allQuestionIds[state.currentQuestionIndex];
+             if (state.questionStatuses[currentQId] === 'active') {
+                // Check if an answer was selected before navigating away
+                const selectedAnswer = state.allAnswers[currentQId];
+                if (selectedAnswer !== null) {
+                    state.questionStatuses[currentQId] = 'answered';
+                } else {
+                    state.questionStatuses[currentQId] = 'skipped';
+                }
+                 state.questionExpiryTimes[currentQId] = null; // Clear timer
+             }
+
+
+            // Go to the new question
+            state.currentQuestionIndex = index;
+            const nextQId = state.allQuestionIds[index];
+
+             // Activate the question if it's currently pending
+             if (state.questionStatuses[nextQId] === 'pending') {
+                 state.questionStatuses[nextQId] = 'active';
+                 // No per-question timer set here for the total time logic
+             }
+             // If navigating back to an answered or skipped question, it remains in that state
+             // If navigating back to an active question (shouldn't happen with current logic but as safeguard), keep it active
+        },
+        submitTestStart: (state) => {
+            state.submitLoading = true;
+            state.submitError = null;
+        },
+        submitTestSuccess: (state) => {
+            state.submitLoading = false;
+            state.isTestSubmitted = true;
+            // Optionally mark any remaining active/pending questions as skipped upon submission
+             state.allQuestionIds.forEach(qId => {
+                 if (state.questionStatuses[qId] === 'active' || state.questionStatuses[qId] === 'pending') {
+                     state.questionStatuses[qId] = 'skipped';
+                     state.allAnswers[qId] = null;
+                     state.questionExpiryTimes[qId] = null;
+                 }
+             });
+        },
+        submitTestFailure: (state, action: PayloadAction<string>) => {
+            state.submitLoading = false;
+            state.submitError = action.payload;
+        },
+        // Add a thunk for submitting the test asynchronously
+        // This would typically involve an API call and dispatching submitTestStart/Success/Failure
+        // submitTest: createAsyncThunk(...) - See async thunk example later or keep existing component logic
+    },
+});
+
+export const {
+    startTest,
+    recordAnswer,
+    markQuestionSkipped,
+    goToQuestion,
+    submitTestStart,
+    submitTestSuccess,
+    submitTestFailure,
+    setTestDuration, // Exported, but startTest is preferred for initial setup
+} = testSlice.actions;
+
+// --- Selectors ---
+export const selectAllQuestionIds = (state: RootState) => state.test.allQuestionIds;
+export const selectQuestionStatuses = (state: RootState) => state.test.questionStatuses;
+export const selectCurrentQuestionIndex = (state: RootState) => state.test.currentQuestionIndex;
+export const selectAnswers = (state: RootState) => state.test.allAnswers;
+export const selectSubmitLoading = (state: RootState) => state.test.submitLoading;
+export const selectIsTestSubmitted = (state: RootState) => state.test.isTestSubmitted;
+export const selectQuestionStatus = createSelector(
+    [selectQuestionStatuses, (state, questionId: string) => questionId],
+    (statuses, questionId) => statuses[questionId] || 'pending'
+);
+export const selectQuestionExpiryTime = createSelector(
+    [state => state.test.questionExpiryTimes, (state, questionId: string) => questionId],
+    (expiryTimes, questionId) => expiryTimes[questionId] || null
+); // Kept, but not used for total timer display
+
+
+// New selectors for total test time
+export const selectTestStartTime = (state: RootState) => state.test.testStartTime;
+export const selectTotalTestDuration = (state: RootState) => state.test.testDuration; // Duration in minutes
+
+export const selectTotalRemainingTime = createSelector(
+    [selectTestStartTime, selectTotalTestDuration, (state: RootState) => Date.now()],
+    (startTime, duration, now) => {
+        if (startTime === null || duration === null || duration <= 0) {
+            return 0; // Or some other indicator if test hasn't started or has no time
+        }
+        // duration is in minutes, convert to milliseconds for calculation
+        const endTime = startTime + duration * 60 * 1000;
+        const remainingMillis = Math.max(0, endTime - now);
+        // Return remaining time in seconds, as required by CountdownCircleTimer duration prop
+        return Math.floor(remainingMillis / 1000);
+    }
+);
+
+
+// Selector to check if any question timers are active (less relevant with total timer)
+// export const selectAreAnyTimersActive = createSelector(
+//     [state => state.test.questionExpiryTimes, state => state.test.isTestSubmitted],
+//     (expiryTimes, isSubmitted) => {
+//          if (isSubmitted) return false;
+//          const now = Date.now();
+//          return Object.values(expiryTimes).some(expiryTime => expiryTime !== null && expiryTime > now);
+//     }
+// );
+// Instead, we'll check if the total timer is still running
+export const selectIsTotalTimerActive = createSelector(
+    [selectTotalRemainingTime, selectIsTestSubmitted],
+    (remainingTime, isSubmitted) => !isSubmitted && remainingTime > 0
+);
+
+
+// Assuming you have a submitTest thunk (or define it here)
+// Example async thunk (you might have this defined already)
+export const submitTest = () => async (dispatch: any, getState: () => RootState) => {
+    dispatch(submitTestStart());
+    try {
+        const state = getState();
+        const { allAnswers, allQuestionIds, questionStatuses, testStartTime, testDuration } = state.test;
+        const { user } = state.auth; // Assuming auth slice exists and has user
+
+        if (!user || !user.token) {
+             throw new Error("User not authenticated.");
+        }
+
+        const submissionData = {
+            user: user._id, // Or email/identifier
+            answers: allAnswers,
+            questionStatuses: questionStatuses,
+            allQuestionIds: allQuestionIds,
+            testStartTime: testStartTime,
+            testEndTime: Date.now(),
+            assignedDuration: testDuration, // Optional, for logging/verification
+            // Include assessmentLink token if needed by the backend for context
+            assessmentToken: (getState() as any).// access route params if possible or pass as argument
+        };
+
+        // ** Important: You need to get the assessmentToken here if your backend requires it.
+        // This might involve accessing route parameters or passing it to the thunk.
+        // For now, let's assume the backend can infer it from the user/context
+        // or you'll modify this to pass it. If the API call is to a fixed endpoint,
+        // perhaps the backend uses the user's session or the submission data includes info.
+        // A better approach might be to pass the token from the component:
+        // dispatch(submitTest(token)); and update the thunk signature.
+
+        // Example placeholder API call
+        // const response = await axios.post('http://localhost:5000/api/test/submit', submissionData, {
+        //     headers: {
+        //         Authorization: `Bearer ${user.token}`,
+        //         'Content-Type': 'application/json',
+        //     },
+        // });
+        // Assuming success if no error is thrown
+        console.log("Test submitted successfully (simulated)"); // Replace with actual API call
+        dispatch(submitTestSuccess());
+        // The component will handle navigation after success
+
+    } catch (error: any) {
+        console.error("Submission failed:", error);
+        dispatch(submitTestFailure(error.response?.data?.message || error.message || "Submission failed"));
+        // Optionally show an error message to the user
+    }
 };
 
 
-admin/fetchTestResultSlice.ts
+export default testSlice.reducer;
+//admin/assessmentLinkslice.ts
+
+// frontend/src/features/assessmentLinkSlice.ts
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { RootState } from '../../app/store';
 import axios from 'axios';
+import {setAssessmentToken } from '../testSlice';
 const API_URL = import.meta.env.VITE_BACKEND_URL as string;
+interface AssessmentLink {
+  _id: string;
+  link: string;
+  createdBy: { _id: string; name: string; email: string };
+  questionsToAsk: number;
+  assignedTime: number;
+  expiryDate: string;
+  userEmail: string;
+  userName: string;
+  createdAt: string;
+}
 
+interface AssessmentLinkState {
+  links: AssessmentLink[];
+  loading: boolean;
+  error: string | null;
+  creationLoading: boolean;
+  creationError: string | null;
+  newLink: string | null;
+}
 
-export const fetchTestResults = createAsyncThunk('testResults/fetch', async (_, thunkAPI) => {
-  const token = localStorage.getItem('token');
-  
-  if (!token) {
-    return thunkAPI.rejectWithValue('No token found');
+const initialState: AssessmentLinkState = {
+  links: [],
+  loading: false,
+  error: null,
+  creationLoading: false,
+  creationError: null,
+  newLink: null,
+};
+
+export const fetchAssessmentLinks = createAsyncThunk(
+  'assessmentLinks/fetch',
+  async () => {
+    const token = localStorage.getItem('token');
+    try {
+      const response = await axios.get(`${API_URL}/api/admin/assessment-links`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return response.data as AssessmentLink[];
+    } catch (error: any) {
+      throw new Error(thunkErrorHandler(error)); // ✅ throw instead of return
+    }
   }
-  const response = await axios.get(`${API_URL}/api/admin/getResult`,
-    {
-      headers: {
-          Authorization: `Bearer ${token}`,
-      },
-  }
-  ); 
-  return response.data;
-});
+);
 
-const testResultSlice = createSlice({
-  name: 'testResults',
-  initialState: {
-    results: [],
-    loading: false,
-    error: null as string | null,
+interface CreateAssessmentLinkPayload {
+  questionsToAsk: number;
+  assignedTime: number;
+  expiryDays: number;
+  userEmail: string;
+  userName: string;
+}
+
+export const createAssessmentLink = createAsyncThunk(
+  'assessmentLinks/create',
+  async (payload: CreateAssessmentLinkPayload,{  dispatch }) => {
+    const token = localStorage.getItem('token');
+    try {
+      const response = await axios.post(`${API_URL}/api/admin/assessment-links`, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      dispatch(setAssessmentToken(response.data.token));
+      return response.data.link as string;
+    } catch (error: any) {
+      return thunkErrorHandler(error);
+    }
+  }
+);
+
+const assessmentLinkSlice = createSlice({
+  name: 'assessmentLinks',
+  initialState,
+  reducers: {
+    clearNewLink: (state) => {
+      state.newLink = null;
+    },
   },
-  reducers: {},
   extraReducers: (builder) => {
     builder
-      .addCase(fetchTestResults.pending, (state) => {
+      .addCase(fetchAssessmentLinks.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-      .addCase(fetchTestResults.fulfilled, (state, action) => {
+      .addCase(fetchAssessmentLinks.fulfilled, (state, action) => {
         state.loading = false;
-        state.results = action.payload;
+        state.links = action.payload;
       })
-      .addCase(fetchTestResults.rejected, (state, action) => {
+      .addCase(fetchAssessmentLinks.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message || 'Failed to fetch results';
+        state.error = action.payload as string;
+        state.links = []; // Ensure links is reset to an empty array on error
+      })
+      .addCase(createAssessmentLink.pending, (state) => {
+        state.creationLoading = true;
+        state.creationError = null;
+        state.newLink = null;
+      })
+      .addCase(createAssessmentLink.fulfilled, (state, action) => {
+        state.creationLoading = false;
+        state.newLink = action.payload;
+      })
+      .addCase(createAssessmentLink.rejected, (state, action) => {
+        state.creationLoading = false;
+        state.creationError = action.payload as string;
       });
   },
 });
 
-export default testResultSlice.reducer;
+const thunkErrorHandler = (error: any): string => {
+  if (error.response && error.response.data && error.response.data.message) {
+    return error.response.data.message;
+  }
+  return error.message || 'An unexpected error occurred.';
+};
 
-admin/testResult.tsx
-import React, { useEffect, useState } from 'react';
-import { Bar } from 'react-chartjs-2';
-import {
-  Chart,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-} from 'chart.js';
+export const { clearNewLink } = assessmentLinkSlice.actions;
+
+export const selectAssessmentLinks = (state: RootState) => state.assessmentLinks.links;
+export const selectAssessmentLinksLoading = (state: RootState) => state.assessmentLinks.loading;
+export const selectAssessmentLinksError = (state: RootState) => state.assessmentLinks.error;
+export const selectIsCreatingLink = (state: RootState) => state.assessmentLinks.creationLoading;
+export const selectCreationLinkError = (state: RootState) => state.assessmentLinks.creationError;
+export const selectNewAssessmentLink = (state: RootState) => state.assessmentLinks.newLink;
+
+export default assessmentLinkSlice.reducer;
+
+/assessmentCreation.tsx
+
+import { useState, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
-import { fetchTestResults } from '../../features/admin/fetchTestResults';
+import {
+  fetchAssessmentLinks,
+  createAssessmentLink,
+  selectAssessmentLinks,
+  selectAssessmentLinksLoading,
+  selectAssessmentLinksError,
+  selectIsCreatingLink,
+  selectCreationLinkError,
+  selectNewAssessmentLink,
+  clearNewLink,
+} from '../../features/admin/assessmentLLinkSlice';
+import Sidebar from './Sidebar';
+import Avatar from './avtar';
+import { selectTotalQuestions } from '../../features/questionSlice';
+import dayjs from 'dayjs';  // Importing dayjs
+import relativeTime from 'dayjs/plugin/relativeTime';
 
-// Register chart components
-Chart.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
-
-const TestResult: React.FC = () => {
+dayjs.extend(relativeTime);
+const AssessmentCreation = () => {
   const dispatch = useAppDispatch();
-  const { results, loading, error } = useAppSelector((state) => state.results);
-  const [selectedResult, setSelectedResult] = useState<any | null>(null);
+
+  const totalQuestions = useAppSelector(selectTotalQuestions);
+  const assessmentLinks = useAppSelector(selectAssessmentLinks) || [];
+  const loadingLinks = useAppSelector(selectAssessmentLinksLoading);
+  const linksError = useAppSelector(selectAssessmentLinksError);
+  const isCreating = useAppSelector(selectIsCreatingLink);
+  const creationError = useAppSelector(selectCreationLinkError);
+  const newLink = useAppSelector(selectNewAssessmentLink);
+
+  const [questionsToAsk, setQuestionsToAsk] = useState<number>(1);
+  const [assignedTime, setAssignedTime] = useState<number>(60);
+  const [expiryDays, setExpiryDays] = useState<number>(7);
+  const [userEmail, setUserEmail] = useState<string>('');
+  const [userName, setUserName] = useState<string>('');
+  const [showPopup, setShowPopup] = useState<boolean>(false);
 
   useEffect(() => {
-    dispatch(fetchTestResults());
+    dispatch(fetchAssessmentLinks());
   }, [dispatch]);
 
-  const handleAnalyticsClick = (res: any) => {
-    setSelectedResult(res);
+  useEffect(() => {
+    if (newLink) {
+      setShowPopup(true);
+    }
+  }, [newLink]);
+
+  const handleGenerateLink = () => {
+    if (!userEmail || !userName) {
+      alert('Please enter user email and name.');
+      return;
+    }
+    if (questionsToAsk > totalQuestions || questionsToAsk < 1) {
+      alert(`Please enter a valid number of questions (1 to ${totalQuestions}).`);
+      return;
+    }
+    if (assignedTime < 60) {
+      alert('Assigned time must be at least 1 minute.');
+      return;
+    }
+    if (expiryDays < 1) {
+      alert('Expiry days must be at least 1 day.');
+      return;
+    }
+
+    dispatch(
+      createAssessmentLink({ questionsToAsk, assignedTime, expiryDays, userEmail, userName })
+    );
   };
 
-  const chartData = selectedResult
-    ? {
-        labels: ['Correct Answers', 'Total Time (sec)'],
-        datasets: [
-          {
-            label: selectedResult.user?.name || 'User',
-            data: [selectedResult.correctAnswerCount, selectedResult.totalTimeTaken],
-            backgroundColor: ['#36a2eb', '#ff6384'],
-          },
-        ],
-      }
-    : null;
+  const handleClosePopup = () => {
+    setShowPopup(false);
+    dispatch(clearNewLink());
+  };
+
+  const calculateTimeLeft = (expiryDate: string): string => {
+    const expiry = dayjs(expiryDate); // Parse the expiry date with dayjs
+    const now = dayjs(); // Current time
+  
+    if (expiry.isBefore(now)) {
+      return 'Expired';
+    }
+  
+    return expiry.fromNow(); // Use fromNow() to return relative time
+  };
+  
+  if (loadingLinks) {
+    return <div>Loading assessment links...</div>;
+  }
+
+  if (linksError) {
+    return <div>Error loading assessment links: {linksError}</div>;
+  }
 
   return (
-    <div className="container py-5">
-      <h2 className="text-center mb-5 display-4 font-weight-bold text-primary">
-        Test Results
-      </h2>
+    <div className="dashboard-container">
+    <Sidebar/>
+    <div className="main-content">
+      <Avatar/>
+    <div className="container mt-5">
+      <h2>Create Assessment Link</h2>
+      <p>Total questions in database: {totalQuestions}</p>
 
-      {loading && <p className="text-center text-muted">Loading...</p>}
-      {error && <p className="text-center text-danger">{error}</p>}
+      <div className="mb-3">
+        <label htmlFor="questionsToAsk" className="form-label">Number of Questions to Ask:</label>
+        <input
+          type="number"
+          className="form-control"
+          id="questionsToAsk"
+          value={questionsToAsk}
+          onChange={(e) => setQuestionsToAsk(parseInt(e.target.value))}
+          min="1"
+          max={totalQuestions}
+        />
+      </div>
 
-      {!loading && results.length > 0 ? (
-        <>
-          <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-            {results.map((res: any, idx: number) => (
-              <div key={idx} className="col">
-                <div className="card shadow-lg border-light rounded-3 p-3">
-                  <div className="card-body">
-                    <h3 className="card-title text-primary mb-4">
-                      {res.user?.name || 'Unknown User'}
-                    </h3>
-                    <p><strong>Email:</strong> {res.user?.email || 'N/A'}</p>
-                    <p><strong>Score:</strong> {res.correctAnswerCount}</p>
-                    <p><strong>Total Time:</strong> {res.totalTimeTaken} seconds</p>
-                    <p><strong>Start Time:</strong> {res.startTime ? new Date(res.startTime).toLocaleString() : 'N/A'}</p>
-                    <p><strong>End Time:</strong> {res.endTime ? new Date(res.endTime).toLocaleString() : 'N/A'}</p>
-                    <button
-                      className="btn btn-outline-primary mt-3"
-                      onClick={() => handleAnalyticsClick(res)}
-                    >
-                      View Analytics
-                    </button>
-                  </div>
-                </div>
+      <div className="mb-3">
+        <label htmlFor="assignedTime" className="form-label">Total Time for Assessment (seconds):</label>
+        <input
+          type="number"
+          className="form-control"
+          id="assignedTime"
+          value={assignedTime}
+          onChange={(e) => setAssignedTime(parseInt(e.target.value))}
+          min="60"
+        />
+      </div>
+
+      <div className="mb-3">
+        <label htmlFor="expiryDays" className="form-label">Link Expiry Time (days):</label>
+        <input
+          type="number"
+          className="form-control"
+          id="expiryDays"
+          value={expiryDays}
+          onChange={(e) => setExpiryDays(parseInt(e.target.value))}
+          min="1"
+        />
+      </div>
+
+      <div className="mb-3">
+        <label htmlFor="userEmail" className="form-label">User Email:</label>
+        <input
+          type="email"
+          className="form-control"
+          id="userEmail"
+          value={userEmail}
+          onChange={(e) => setUserEmail(e.target.value)}
+        />
+      </div>
+
+      <div className="mb-3">
+        <label htmlFor="userName" className="form-label">User Name:</label>
+        <input
+          type="text"
+          className="form-control"
+          id="userName"
+          value={userName}
+          onChange={(e) => setUserName(e.target.value)}
+        />
+      </div>
+
+      <button className="btn primary-btn text-white" onClick={handleGenerateLink} disabled={isCreating}>
+        {isCreating ? 'Generating Link...' : 'Generate Link'}
+      </button>
+
+      {creationError && <div className="alert alert-danger mt-3">{creationError}</div>}
+
+      {showPopup && newLink && (
+        <div className="modal fade show" style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Assessment Link Generated</h5>
+                <button type="button" className="btn-close" onClick={handleClosePopup}></button>
               </div>
-            ))}
-          </div>
-
-          {selectedResult && (
-            <div className="mt-5">
-              <h4 className="text-center mb-4">
-                Analytics for {selectedResult.user?.name}
-              </h4>
-              <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-                <Bar data={chartData!} />
+              <div className="modal-body">
+                <p>Here is the unique link for the assessment:</p>
+                <p>
+                  <strong className="text-break">{newLink}</strong>
+                </p>
+                <p>Please share this link with the user.</p>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={handleClosePopup}>
+                  Close
+                </button>
               </div>
             </div>
-          )}
-        </>
-      ) : (
-        !loading && <p className="text-center text-muted">No results found.</p>
+          </div>
+        </div>
       )}
+
+      <h2 className="mt-4">Created Assessment Links</h2>
+      {Array.isArray(assessmentLinks) && assessmentLinks.length > 0 ? (
+  <table className="table table-striped">
+    <thead>
+      <tr>
+        <th>Link</th>
+        <th>User</th>
+        <th>Questions</th>
+        <th>Time (seconds)</th>
+        <th>Expires In</th>
+        <th>Created At</th>
+      </tr>
+    </thead>
+    <tbody>
+      {assessmentLinks.map((link) => (
+        <tr key={link._id}>
+          <td>
+            <a href={link.link} target="_blank" rel="noopener noreferrer">
+              {link.link}
+            </a>
+          </td>
+          <td>{link.userName} ({link.userEmail})</td>
+          <td>{link.questionsToAsk}</td>
+          <td>{link.assignedTime}</td>
+          <td>{calculateTimeLeft(link.expiryDate)}</td>
+          <td>{new Date(link.createdAt).toLocaleDateString()}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+) : (
+  <p>No assessment links created yet.</p>
+)}
+
+    </div>
+    </div>
     </div>
   );
 };
 
-export default TestResult;
+export default AssessmentCreation;
+
+//createAssessment.tsx
+// frontend/src/pages/AssessmentQuestions.tsx
+import { useState, useEffect, useMemo, useRef } from "react";
+import {
+  selectTotalQuestions,
+  fetchQuestions,
+  selectQuestions,
+  selectQuestionsLoading,
+  selectQuestionsError,
+} from "../../features/questionSlice";
+import { CountdownCircleTimer } from "react-countdown-circle-timer";
+import CheckIcon from "../../../public/static/img/icon/ic-check.svg";
+import Logo from "../../../public/static/img/logo.svg";
+import { useNavigate, useParams } from "react-router-dom"; // Import useParams
+import { useAppDispatch, useAppSelector } from "../../app/hooks";
+import {
+  startTest,
+  recordAnswer,
+  markQuestionSkipped,
+  goToQuestion,
+  submitTest,
+  selectCurrentQuestionIndex,
+  selectQuestionStatuses,
+  selectSubmitLoading,
+  selectAnswers,
+  selectQuestionStatus,
+  selectQuestionExpiryTime,
+  selectAllQuestionIds,
+  selectIsTestSubmitted,
+  selectAreAnyTimersActive,
+  setTestDuration, // Import action to set test duration
+} from "../../features/testSlice";
+import { RootState } from "../../app/store";
+import { logout } from "../../features/authSlice";
+import axios from "axios";
+
+interface AssessmentLinkData {
+  assessmentLink: {
+    _id: string;
+    link: string;
+    createdBy: string;
+    questionsToAsk: number;
+    assignedTime: number;
+    expiryDate: string;
+    userEmail: string;
+    userName: string;
+    createdAt: string;
+  };
+  questions: any[]; // Adjust type based on your Question model
+  assignedTime: number;
+}
+
+const AssessmentQuestions = () => {
+  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+  const { token } = useParams<{ token: string }>(); // Get the token from the URL
+  const intervalRef = useRef<number | null>(null);
+
+  // --- Selectors ---
+  const questionsFromSlice = useAppSelector(selectQuestions);
+  const loadingQuestionsFromSlice = useAppSelector(selectQuestionsLoading);
+  const errorQuestionsFromSlice = useAppSelector(selectQuestionsError);
+  const currentQuestionIndex = useAppSelector(selectCurrentQuestionIndex);
+  const questionStatuses = useAppSelector(selectQuestionStatuses);
+  const allAnswers = useAppSelector(selectAnswers);
+  const allQuestionIds = useAppSelector(selectAllQuestionIds);
+  const isSubmitting = useAppSelector(selectSubmitLoading);
+  const isTestSubmitted = useAppSelector(selectIsTestSubmitted);
+  const allExpiryTimes = useAppSelector((state: RootState) => state.test.questionExpiryTimes);
+  const areAnyTimersActive = useAppSelector(selectAreAnyTimersActive);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [selectedOption, setSelectedOption] = useState<number | null>(null);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const [timerKey, setTimerKey] = useState<number>(0);
+  const [assessmentLoading, setAssessmentLoading] = useState(true);
+  const [assessmentError, setAssessmentError] = useState<string | null>(null);
+  const [fetchedQuestions, setFetchedQuestions] = useState<any[]>([]); // State to hold fetched questions
+  const [assignedTestTime, setAssignedTestTime] = useState<number>(0); // State for assigned time
 
 
+  const currentQuestion = useMemo(() => {
+    if (currentQuestionIndex >= 0 && currentQuestionIndex < fetchedQuestions.length) {
+      return fetchedQuestions[currentQuestionIndex];
+    }
+    return null;
+  }, [currentQuestionIndex, fetchedQuestions]);
 
+  const currentQuestionId = useMemo(() => currentQuestion?._id, [currentQuestion]);
+  const currentQuestionStatus = useAppSelector(state => currentQuestionId ? selectQuestionStatus(state, currentQuestionId) : 'pending');
+  const currentQuestionExpiryTime = useAppSelector(state => currentQuestionId ? selectQuestionExpiryTime(state, currentQuestionId) : null);
+  const isCurrentQuestionLocked = currentQuestionStatus === 'answered' || currentQuestionStatus === 'skipped';
+  const isCurrentQuestionActive = currentQuestionStatus === 'active';
 
+  const toggleDropdown = () => setDropdownOpen(!dropdownOpen);
+  const user = useAppSelector((state) => state.auth.user);
+  const userEmail = user?.email || 'U';
+  const avtarLetter = userEmail.charAt(0).toUpperCase();
 
-
+  useEffect(() => {
+    if (token) {
+      console.log("TOKEN FOUND:", token);
+      axios.get(`http://localhost:5000/api/ques/assessment/${token}`)
+        .then((response) => {
+          console.log("API Response:", response.data);
+          const data: AssessmentLinkData = response.data;
+          setFetchedQuestions(data.questions);
+          setAssignedTestTime(data.assignedTime);
+          dispatch(startTest({ questions: data.questions }));
+          dispatch(setTestDuration(data.assignedTime)); // Set the total test duration
+          setAssessmentLoading(false);
+        })
+        .catch((error) => {
+          console.error("Error fetching assessment:", error);
+          setAssessmentError(error.response?.data?.message || "Failed to fetch assessment details.");
+          setAssessmentLoading(false);
+        });
+    }
+  }, [dispatch, token]);
 
   
+  const start = useMemo(() => {
+    const initial = assignedTestTime ; // Total test time in seconds
+    return initial;
+  }, [assignedTestTime]);
+console.log(start);
+  useEffect(() => { dispatch(fetchQuestions()); }, [dispatch]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+
+    if (dropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [dropdownOpen]);
+
+  useEffect(() => {
+    const checkTimers = () => {
+      if (isTestSubmitted) {
+        if (intervalRef.current) clearInterval(intervalRef.current);
+        return;
+      }
+
+      const now = Date.now();
+      Object.entries(allExpiryTimes).forEach(([qId, expiryTime]) => {
+        if (expiryTime !== null && now >= expiryTime && questionStatuses[qId] === 'active') {
+          if (currentQuestionId === qId && selectedOption !== null) {
+            dispatch(recordAnswer({ questionId: qId, selectedOption }));
+          } else {
+            dispatch(markQuestionSkipped({ questionId: qId }));
+          }
+
+          const currentIndex = allQuestionIds.indexOf(qId);
+          const nextPendingIndex = allQuestionIds.findIndex((id, idx) => idx > currentIndex && questionStatuses[id] === 'pending');
+
+          if (nextPendingIndex !== -1) {
+            dispatch(goToQuestion({ index: nextPendingIndex, questionId: allQuestionIds[nextPendingIndex] }));
+          } else {
+            const firstPendingIndex = allQuestionIds.findIndex(id => questionStatuses[id] === 'pending');
+            if (firstPendingIndex !== -1) {
+              dispatch(goToQuestion({ index: firstPendingIndex, questionId: allQuestionIds[firstPendingIndex] }));
+            }
+          }
+        }
+      });
+    };
+
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+
+    if (fetchedQuestions.length > 0 && !isTestSubmitted) {
+      intervalRef.current = setInterval(checkTimers, 1000);
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+
+  }, [allExpiryTimes, questionStatuses, dispatch, fetchedQuestions.length, isTestSubmitted, allQuestionIds, currentQuestionId, selectedOption, navigate]); // Added navigate as a dependency
+
+
+  useEffect(() => {
+    if (currentQuestionId) {
+      const status = questionStatuses[currentQuestionId];
+      if (status === 'answered') {
+        const recordedAnswer = allAnswers[currentQuestionId];
+        setSelectedOption(recordedAnswer?.selectedOption ?? null);
+      } else {
+        setSelectedOption(null);
+      }
+    } else {
+      setSelectedOption(null);
+    }
+
+    if (questionStatuses[currentQuestionId!] === 'active') {
+      setTimerKey(prev => prev + 1);
+    }
+
+  }, [currentQuestionIndex, currentQuestionId, questionStatuses, allAnswers]);
+
+
+  const handleOptionClick = (index: number) => {
+    if (isCurrentQuestionActive) setSelectedOption(index);
+  };
+
+
+  const handleGoToQuestion = (index: number, questionId: string) => {
+    if (index !== currentQuestionIndex) {
+      dispatch(goToQuestion({ index, questionId }));
+    }
+  };
+
+
+  const handleAnswerOrSkipCurrent = () => {
+    if (!currentQuestionId || !isCurrentQuestionActive || isSubmitting) return;
+
+    if (selectedOption !== null) {
+      dispatch(recordAnswer({ questionId: currentQuestionId, selectedOption }));
+    } else {
+      dispatch(markQuestionSkipped({ questionId: currentQuestionId }));
+    }
+
+    const nextPendingIndex = allQuestionIds.findIndex((id, idx) => idx > currentQuestionIndex && questionStatuses[id] === 'pending');
+    if (nextPendingIndex !== -1) {
+      dispatch(goToQuestion({ index: nextPendingIndex, questionId: allQuestionIds[nextPendingIndex] }));
+    }
+  };
+  const handleSkipCurrent = () => {
+    if (!currentQuestionId || !isCurrentQuestionActive || isSubmitting) return;
+
+    dispatch(markQuestionSkipped({ questionId: currentQuestionId }));
+
+    const nextPendingIndex = allQuestionIds.findIndex((id, idx) => idx > currentQuestionIndex && questionStatuses[id] === 'pending');
+    if (nextPendingIndex !== -1) {
+      dispatch(goToQuestion({ index: nextPendingIndex, questionId: allQuestionIds[nextPendingIndex] }));
+    }
+  };
+
+
+  const handleForceSubmit = () => {
+    if (!isSubmitting) {
+      dispatch(submitTest()).unwrap().then(() => navigate(`/completed/${token}`)).catch(console.error);
+    }
+  }
+
+
+  if (assessmentLoading) {
+    return (
+      <div className="d-flex  justify-content-center align-items-center vh-100">
+        <div className="spinner-border loader" role="status">
+          <span className="visually-hidden primary-btn">Loading Assessment...</span>
+        </div>
+      </div>
+    );
+  }
+  
+
+  if (assessmentError) {
+    return <div className="container vh-100 d-flex justify-content-center align-items-center">Error loading assessment: {assessmentError}</div>;
+  }
+
+  if (loadingQuestionsFromSlice || assessmentLoading) {
+    return (
+      <>
+        <div className="d-flex  justify-content-center align-items-center vh-100">
+          <div className="spinner-border loader" role="status">
+            <span className="visually-hidden primary-btn">Loading Questions...</span>
+          </div>
+        </div>
+      </>
+    );
+  }
+  if (errorQuestionsFromSlice) return <div className="container vh-100 d-flex justify-content-center align-items-center">Error loading questions: {errorQuestionsFromSlice}</div>;
+  if (!currentQuestion) return <div className="container vh-100 d-flex justify-content-center align-items-center">Loading assessment state...</div>;
+
+  const remainingTimeForVisibleTimer = isCurrentQuestionActive && currentQuestionExpiryTime
+    ? Math.max(0, Math.floor((currentQuestionExpiryTime - Date.now()) / 1000))
+    : 0;
+
+
+  return (
+    <>
+      <section className="container-fluid min-vh-100 d-flex align-items-center justify-content-center screen-bg">
+        <div className="position-absolute top-0 end-0 m-4">
+          <div className="position-relative" ref={dropdownRef}>
+            <div
+              onClick={toggleDropdown}
+              className="primary-btn text-white rounded-circle d-flex align-items-center justify-content-center"
+              style={{
+                width: "40px",
+                height: "40px",
+                cursor: "pointer",
+                fontWeight: "bold",
+                fontSize: "18px",
+              }}
+            >
+              {avtarLetter}
+            </div>
+
+            {dropdownOpen && (
+              <div
+                className="position-absolute end-0 mt-2 bg-white border rounded shadow-sm"
+                style={{ minWidth: "120px", zIndex: 10 }}
+              >
+                <button
+                  onClick={() => {
+                    dispatch(logout());
+                    navigate("/");
+                  }}
+                  className="dropdown-item text-start px-3 py-2 w-100 border-0 bg-transparent"
+                >
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="max-w-xxl mx-auto my-sm-5 my-4 px-3 w-100">
+          <div className="d-flex align-items-center justify-content-center mb-3 w-fit mx-auto"> <img src={Logo} alt="Logo" className="img-fluid logo" /> </div>
+          <div className="row bg-white py-5 px-sm-4 px-3 rounded-4 box-shadow lightgray-border">
+            {/* Main Question Area */}
+            <div className="col-lg-9 order-2 order-lg-1">
+              <h3 className="fs-20 fw-bold d-flex align-items-start gap-2 mb-4">
+                <span>Q{currentQuestionIndex + 1}.</span> {currentQuestion.question}
+                {currentQuestionStatus === 'skipped' && <span className="badge bg-warning text-dark ms-2">Skipped</span>}
+                {currentQuestionStatus === 'answered' && <span className="badge bg-success text-white ms-2">Answered</span>}
+                {isCurrentQuestionActive && <span className="badge primary-btn text-white ms-2">Active</span>}
+              </h3>
+
+              <ul className="ps-0 list-unstyled">
+                {currentQuestion.options && currentQuestion.options.map((option: string, index: number) => {
+
+                  const isSelected = selectedOption === index;
+                  let optionClass = `fs-18 lightgray-border rounded-3 p-3 d-flex align-items-start justify-content-between gap-3 mb-3 options`;
+                  let interactionStyle = { cursor: 'not-allowed' };
+
+                  if (isCurrentQuestionActive) {
+                    optionClass += ' cursor-pointer';
+                    interactionStyle = { cursor: 'pointer' };
+                    if (isSelected) optionClass += ' active';
+                  } else {
+                    optionClass += ' locked';
+                    if (isSelected) optionClass += ' active';
+                  }
+                  return (
+                    <li key={index} className={optionClass} onClick={() => handleOptionClick(index)} style={interactionStyle} > {/* ... content ... */}
+                      <div className="d-flex align-items-start gap-3">
+                        <div className={`fw-medium rounded-1 answer-option ${isSelected ? 'active' : ''}`}>
+                          {String.fromCharCode(65 + index)}
+                        </div>
+                        {option}
+                      </div>
+                      {isSelected && (
+                        <img src={CheckIcon} alt="Selected Answer" width={24} className="align-self-center" />
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+
+              {isCurrentQuestionActive && (
+                <>
+                  <div className="d-flex gap-3 ">
+                    <button
+                      type="button"
+                      className="btn primary-btn text-white w-fit mt-4 fw-semibold px-4"
+                      onClick={handleAnswerOrSkipCurrent}
+                      disabled={selectedOption === null}
+                      title=" Confirm Answer"
+                    >
+                      Confirm Answer
+                    </button>
+
+                    <button
+                      type="button"
+                      className="btn primary-btn text-white w-fit mt-4 fw-semibold px-4"
+                      onClick={handleSkipCurrent}
+                      title=" Skip Question"
+                    >
+                      Skip Question
+                    </button>
+                  </div>
+                </>
+              )}
+              {isCurrentQuestionLocked && (
+                <p className="mt-4 text-muted">This question is locked.</p>
+              )}
+            </div>
+
+            {/* Sidebar Area */}
+            <div className="col-lg-3 order-1 order-lg-2 mb-lg-0 mb-4">
+              {/* Visible Timer  */}
+              {isCurrentQuestionActive && currentQuestionExpiryTime && (
+                <div className="d-flex flex-column align-items-center justify-content-center gap-3 lightgray-border p-3 box-shadow rounded-3 mb-3">
+                  <div className="fs-2 primary-color fw-bold">
+                    <CountdownCircleTimer
+                      key={`timer-<span class="math-inline">\{currentQuestionId\}\-</span>{timerKey}`}
+                      isPlaying={true}
+                      duration={start}
+                    //   initialRemainingTime={remainingTimeForVisibleTimer}
+                      colors={['#3919EE', '#8875F5', '#B0A3F8']}
+                      colorsTime={[60, 30, 10]}
+                      trailColor="#EAECF0"
+                      isSmoothColorTransition
+                      size={125}
+                      strokeWidth={9}
+                    >
+                      {({ remainingTime }) => remainingTime}
+                      </CountdownCircleTimer>
+                    </div>
+                    <h6 className="fw-bold mb-0">Time Left</h6>
+                  </div>
+                )}
+                {/* Placeholder if current question is locked */}
+                {isCurrentQuestionLocked && (
+                  <div className="d-flex flex-column align-items-center justify-content-center gap-3 lightgray-border p-3 box-shadow rounded-3 mb-3">
+                    <div style={{ height: '130px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+                      <span className="text-muted">Timer N/A</span>
+                    </div>
+                    <h6 className="fw-bold mb-0">Question Locked</h6>
+                  </div>
+                )}
+
+
+                {/* Questions*/}
+                <div className="accordion" id="allQuestions">
+                  <div className="accordion-item lightgray-border rounded-3 p-3 bg-white box-shadow">
+                    <h2 className="accordion-header"> <button className="accordion-button shadow-none bg-transparent fs-18 fw-bold p-0" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne"> Questions List </button> </h2>
+                    <div id="collapseOne" className="accordion-collapse collapse show" data-bs-parent="#allQuestions">
+                      <div className="accordion-body p-0 mt-3 pt-3 lightgray-border-t test">
+                        {fetchedQuestions.map((item: any, index: number) => {
+                          const qId = item._id;
+                          const status = questionStatuses[qId] || 'pending';
+                          const isLocked = status === 'answered' || status === 'skipped';
+                          const isAnswered = status === 'answered';
+                          const isActive = status === 'active';
+                          const isCurrent = index === currentQuestionIndex;
+                          let itemClass = `lightgray-border rounded-3 p-2 fs-14 fw-semibold d-flex align-items-center gap-3 justify-content-between mb-2 cursor-pointer`;
+                          if(isLocked) itemClass += isAnswered ? ' answered' : ' skipped';
+                          if(isActive) itemClass += ' active-question'; else if (status === 'pending') itemClass += ' pending-question';
+                          if(isCurrent) itemClass += ' current';
+                          return (
+                            <div key={qId} className={itemClass} onClick={() => handleGoToQuestion(index, qId)} style={{ cursor: 'pointer' }} >
+                              <span className="question-number">Question {index + 1}</span>
+                              {/* Icons */}
+                              {isAnswered && <img src={CheckIcon} alt="Answered" width={14} />}
+                              {status === 'skipped' && <span title="Skipped" className="text-warning" style={{ fontSize: '10px', fontWeight:'bold' }}>S</span>}
+                              {isActive && <span title="Active Timer" className="spinner-grow spinner-grow-sm text-primary" role="status" aria-hidden="true" style={{width:'0.6rem', height:'0.6rem'}}></span>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/*Optional Dedicated Submit Button*/}
+                <div className="mt-3 d-grid">
+                  <button
+                    className={`btn btn-danger ${!areAnyTimersActive ? 'btn-success' : ''}`}
+                    onClick={handleForceSubmit}
+                    disabled={isSubmitting || isTestSubmitted}
+                  >
+                    {isSubmitting ? "Submitting..." : "Submit Test"}
+                  </button>
+                  {areAnyTimersActive && <small className="text-muted text-center mt-1">Timers are still running.</small>}
+                </div>
+
+              </div>
+            </div>
+          </div>
+    
+      </section>
+    </>
+  );
+};
+
+export default AssessmentQuestions;
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
