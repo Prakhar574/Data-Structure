@@ -1,504 +1,254 @@
-@import url("https://fonts.googleapis.com/css2?family=Quicksand:wght@300..700&display=swap");
-
-:root {
-  --primary-color: #3919ee;
-  --light-primary-color: #f5f3fe;
-  --secondary-color: #272727;
-  --light-gray-color: #f2f2f2;
-  --gray-border-color: #8e8e8e;
-  --lightgray-border-color: #ededed;
-  --fs-14: 14px;
-  --box-shadow: 0px 4px 32px 0px #2929290d;
-  --btn-shadow: 0px 4px 4px 0px #0000001a;
-  --fs-20: 20px;
-  --fs-18: 18px;
-  --letter-spacing: 0.28px;
-  --max-w: 1400px;
-  --completed-question: #f2f0ff;
-}
-
-body {
-  color: var(--secondary-color);
-  font-family: "Quicksand", sans-serif;
-  font-size: 1rem;
-  letter-spacing: var(--letter-spacing);
-}
-
-::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--gray-border-color);
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--lightgray-border-color);
-  border-radius: 50px;
-}
-
-::selection {
-  background: var(--light-primary-color);
-}
-
-/* Common CSS Classes */
-
-.screen-bg {
-  background: var(--light-primary-color);
-}
-
-.w-fit {
-  width: fit-content;
-}
-
-.form-container {
-  max-width: 464px;
-  box-shadow: var(--box-shadow);
-}
-
-.fs-14 {
-  font-size: var(--fs-14);
-}
-
-.lightgray-border {
-  border: 1px solid var(--lightgray-border-color);
-}
-
-.lightgray-border-t {
-  border-top: 1px solid var(--lightgray-border-color);
-}
-
-.cursor-pointer {
-  cursor: pointer;
-}
-
-.show-password {
-  position: absolute;
-  right: 12px;
-  top: 6px;
-}
-
-.primary-btn {
-  background: var(--primary-color) !important;
-}
-.primary-btnn{
-  background: var(--primary-color) !important;
-  color: #ededed;
-  font-weight: bolder;
-} 
-
-.primary-btn:hover {
-  filter: brightness(1.25);
-  transition: all 0.5s;
-  box-shadow: var(--btn-shadow);
-}
-
-.input-h {
-  height: 40px;
-}
-
-.input-h:focus-visible {
-  border-color: var(--primary-color);
-}
-
-.logo {
-  width: 125px;
-}
-
-.fs-20 {
-  font-size: var(--fs-20);
-}
-
-.max-w-xxl {
-  width: var(--max-w);
-}
-
-.primary-color {
-  color: var(--primary-color);
-}
-
-.box-shadow {
-  box-shadow: var(--box-shadow);
-}
-
-.fs-18 {
-  font-size: var(--fs-18);
-}
-
-.accordion-button::after {
-  background-color: var(--light-primary-color);
-  height: 24px;
-  width: 24px;
-  border-radius: 50%;
-  background-size: 12px;
-  background-position: center;
-  border: 1px solid var(--lightgray-border-color);
-}
-
-.accordion-button::after,
-.accordion-button:not(.collapsed)::after {
-  background-image: url(../public/static/img/icon/ic-downArrow.svg);
-}
-
-/* .completed-questions {
-  background: var(--light-gray-color);
-  color: var(--gray-border-color);
-} */
-
-.completed-questions.active {
-  background: var(--completed-question);
-  color: var(--primary-color);
-  font-weight: 700 !important;
-}
-
-.completed-questions.active > img,
-.options.active > img {
-  display: block !important;
-}
-
-.options.active {
-  border-color: var(--primary-color);
-}
-
-.answer-option {
-  min-width: 30px;
-  min-height: 30px;
-  background-color: var(--light-primary-color);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.test {
-  max-height: 500px;
-  overflow: auto;
-}
-.unanswered {
-  border: 2px solid red;  
-}
-.options.disabled {
-  pointer-events: none;
-  opacity: 0.6;
-}
-.loader{
-  color:var(--primary-color);
-}
-
-.notfound-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100%;
-  background: var(--light-primary-color);
-}
-
-.notfound-wrapper {
-  text-align: center;
-  padding: 40px;
-  background: white;
-  border-radius: 10px;
-  box-shadow: var(--box-shadow);
-  max-width: 450px;
-  width: 100%;
-}
-
-.notfound-title {
-  font-size: var(--fs-20);
-  color: var(--primary-color);
-  font-weight: bold;
-}
-
-.notfound-subtitle {
-  font-size: var(--fs-18);
-  color: var(--secondary-color);
-  margin-top: 10px;
-}
-
-.notfound-description {
-  font-size: var(--fs-14);
-  color: var(--secondary-color);
-  margin-top: 20px;
-}
-
-.primary-btnnn {
-  background: var(--primary-color) !important;
-  color: #ededed;
-  font-weight: bolder;
-  padding: 10px 20px;
-  text-decoration: none;
-  display: inline-block;
-  margin-top: 30px;
-  border-radius: 5px;
-  box-shadow: var(--btn-shadow);
-  transition: all 0.3s ease-in-out;
-}
-
-.primary-btnnn:hover {
-  filter: brightness(1.25);
-  box-shadow: var(--btn-shadow);
-}
-
-.primary-btnnn:focus {
-  outline: none;
-}
-.testrules-page-glass {
-  background: linear-gradient(135deg, #e0eaff, #f9f1ff);
-  min-height: 100vh;
-  font-family: 'Quicksand', sans-serif;
-  animation: backgroundFloat 15s ease-in-out infinite alternate;
-}
-
-@keyframes backgroundFloat {
-  0% {
-    background-position: 0% 50%;
-  }
-  100% {
-    background-position: 100% 50%;
-  }
-}
-
-.rules-container {
-  max-width: 960px;
-  width: 100%;
-  border-radius: 20px;
-  animation: fadeInUp 0.8s ease forwards;
-}
-
-.glass-card {
-  backdrop-filter: blur(12px);
-  background: rgba(255, 255, 255, 0.7);
-  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 20px;
-}
-
-.rule-card {
-  background-color: rgba(255, 255, 255, 0.95);
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: 0 4px 16px rgba(57, 25, 238, 0.05);
-  transition: transform 0.3s ease;
-}
-
-.rule-card:hover {
-  transform: translateY(-5px);
-}
-
-.gradient-text {
-  background: linear-gradient(45deg, #3803f8, #c86eff);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.start-btn {
-  background: linear-gradient(135deg, #3603f1, #c86eff);
-  color: #fff;
-  font-weight: 600;
-  transition: all 0.3s ease-in-out;
-  border: none;
-}
-
-.start-btn:hover {
-  background: linear-gradient(135deg, #4521c2, #a34fd6);
-  transform: scale(1.05);
-}
-
-.logo {
-  width: 100px;
-}
-.check-icon {
-  width: 18px;
-  height: 18px;
-  vertical-align: middle;
-  filter: brightness(0.7);
-  transition: transform 0.3s ease;
-}
-
-.rule-card p:hover .check-icon {
-  transform: scale(1.2);
-  filter: brightness(1.2);
-}
-
-/* Dashboard Layout */
-.dashboard-container {
-  display: flex;
-  min-height: 100vh;
-  background: linear-gradient(135deg, #e0eaff, #f9f1ff);
-  font-family: 'Quicksand', sans-serif;
-  animation: backgroundFloat 15s ease-in-out infinite alternate;
-}
-
-/* Sidebar */
-.sidebar {
-  width: 250px;
-  background: rgba(255, 255, 255, 0.75);
-  backdrop-filter: blur(10px);
-  box-shadow: 2px 0 12px rgba(57, 25, 238, 0.08);
-  padding: 30px 20px;
-  display: flex;
-  flex-direction: column;
-  border-right: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-.sidebar .logo {
-  width: 100px;
-  margin-bottom: 40px;
-}
-
-.sidebar .nav-links {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.sidebar .nav-links li {
-  margin-bottom: 20px;
-}
-
-.sidebar .nav-links button {
-  background: none;
-  border: none;
-  font-size: 16px;
-  color: #3919ee;
-  font-weight: 600;
-  width: 100%;
-  text-align: left;
-  padding: 10px 12px;
-  border-radius: 10px;
-  transition: background 0.3s ease;
-}
-
-.sidebar .nav-links button:hover {
-  background: rgba(57, 25, 238, 0.1);
-}
-
-/* Main Content */
-.main-content {
-  flex: 1;
-  padding: 40px;
-}
-
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 30px;
-}
-
-.header h2 {
-  font-size: 24px;
-  font-weight: 700;
-  background: linear-gradient(45deg, #3803f8, #c86eff);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-
-/* Table */
-.user-table {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(10px);
-  border-radius: 20px;
-  padding: 20px;
-  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);
-  overflow-x: auto;
-}
-
-.user-table table {
-  width: 100%;
-  border-collapse: collapse;
-  color: #272727;
-}
-
-.user-table thead {
-  background-color: rgba(57, 25, 238, 0.05);
-}
-
-.user-table th,
-.user-table td {
-  padding: 14px 16px;
-  text-align: left;
-  border-bottom: 1px solid #e0e0e0;
-}
-
-.user-table th {
-  color: #3919ee;
-  font-weight: 600;
-}
-
-.user-table tbody tr:hover {
-  background-color: #f5f3fe;
-}
-
-/* Animations */
-@keyframes backgroundFloat {
-  0% {
-    background-position: 0% 50%;
-  }
-  100% {
-    background-position: 100% 50%;
-  }
-}
-
-
-/* Responsive CSS */
-
-@media only screen and (max-width: 768px) {
-  .logo {
-    width: 100px;
-  }
-
-  .fs-20 {
-    font-size: var(--fs-18);
-  }
-
-  .fs-18 {
-    font-size: 1rem;
-  }
-  
-  .dashboard-container {
-    flex-direction: column;
-  }
-
-  .sidebar {
-    width: 100%;
-    flex-direction: row;
-    justify-content: space-around;
-    padding: 20px 10px;
-  }
-
-  .main-content {
-    padding: 20px;
-  }
-
-  .user-table table,
-  .user-table thead,
-  .user-table tbody,
-  .user-table th,
-  .user-table td,
-  .user-table tr {
-    display: block;
-  }
-
-  .user-table thead {
-    display: none;
-  }
-
-  .user-table td {
-    position: relative;
-    padding-left: 50%;
-    border-bottom: 1px solid #ccc;
-  }
-
-  .user-table td::before {
-    position: absolute;
-    left: 16px;
-    top: 14px;
-    width: 45%;
-    white-space: nowrap;
-    font-weight: 600;
-    content: attr(data-label);
-    color: #3919ee;
-  }
-}
+ggimport React, { useEffect, useState } from "react";
+ import { FormValues } from ".";
+ import { FieldArrayWithId } from "react-hook-form";
+ import { showBootstrapModal } from "../../../utils/utils";
+ import VariantsImagesModal from "./VariantsImagesModal";
+ import { DndContext, DragOverlay, useDrag, useDroppable, useSensors, useSensor, pointerSensor } from "@dnd-kit/core";
+ import { SortableContext, sortableKeyboardCoordinates, useSortable } from "@dnd-kit/sortable";
+ import { CSS } from "@dnd-kit/utilities";
+ import { FaArrowsAltV } from "react-icons/fa";
+ import { useDispatch } from "react-redux";
+ import { productActions } from "../../redux/slices/productSlice";
+ import { reorderVariantOptions } from "../../redux/thunks/product/product"; // Import the new thunk
+
+ interface IProps {
+  addVariant: (val: boolean) => void;
+  variants: FieldArrayWithId<FormValues, "variants", "id">[];
+  handleVariantImageDelete: (variantIndex: number, optionIndex: number, imgIndex: number) => void;
+  handleVariantImageUpload: (
+    e: React.ChangeEvent<HTMLInputElement>,
+    variantIndex: number,
+    optionIndex: number
+  ) => void;
+  getValues: any;
+  fields: any;
+  update: any;
+  remove: any;
+ }
+
+ interface SortableItemProps {
+  id: string;
+  variantOption: any;
+  vIndex: number;
+  voIndex: number;
+  handleVariantImageDelete: (variantIndex: number, optionIndex: number, imgIndex: number) => void;
+  setSelectedVariatOption: React.Dispatch<React.SetStateAction<any>>;
+  update: any;
+  remove: any;
+ }
+
+ const SortableVariantOption: React.FC<SortableItemProps> = ({
+  id,
+  variantOption,
+  vIndex,
+  voIndex,
+  handleVariantImageDelete,
+  setSelectedVariatOption,
+  update,
+  remove,
+ }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id: id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <tr ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      <td className="pb-3 pt-4">
+        <FaArrowsAltV className="cursor-grab" />
+      </td>
+      <td className="pb-3 pt-4">{variantOption.variantSku}</td>
+      <td className="pb-3 pt-4">{variantOption.name}</td>
+      <td className="pb-3 pt-4">{variantOption.variantInventory}</td>
+      <td className="pb-3 pt-4">-</td>
+      <td className="pb-3 pt-4">{variantOption.variantPrice}</td>
+      <td className="pb-3 pt-4">
+        <div
+          className="cursor-pointer"
+          onClick={() =>
+            setSelectedVariatOption({
+              ...variantOption,
+              selectedVariatIndex: vIndex,
+              selectedVariatOptionIndex: voIndex,
+            })
+          }
+        >
+          Show Images
+        </div>
+      </td>
+      <td className="pb-3 pt-4 text-nowrap">
+        <span className="shadow-sm rounded bg-white px-2 py-1 cursor-pointer">
+          <img src="/static/img/edit-ic.svg" alt="Edit Icon" />
+        </span>
+        <span
+          className="shadow-sm rounded bg-white px-2 py-1 cursor-pointer mx-2"
+          onClick={() => {
+            const updatedOptions = [...(update.items[vIndex]?.options || [])];
+            updatedOptions.splice(voIndex, 1);
+            if (!updatedOptions.length) {
+              remove(vIndex);
+            } else {
+              update(vIndex, {
+                ...update.items[vIndex],
+                options: updatedOptions,
+              });
+            }
+          }}
+        >
+          <img src="/static/img/delete-ic.svg" alt="Delete Icon" />
+        </span>
+        <span className="shadow-sm rounded bg-white px-2 py-1 cursor-pointer">
+          <img src="/static/img/ic-delist.svg" alt="Delist Icon" width={11} />
+        </span>
+      </td>
+    </tr>
+  );
+ };
+
+ const Variants: React.FC<IProps> = ({
+  addVariant,
+  variants,
+  handleVariantImageDelete,
+  handleVariantImageUpload,
+  getValues,
+  fields,
+  update,
+  remove,
+ }) => {
+  const [selectedVariatOption, setSelectedVariatOption] = useState<any>(null);
+  const dispatch = useDispatch();
+  const sensors = useSensors(useSensor(pointerSensor, { activationConstraint: { distance: 5 } }));
+
+  useEffect(() => {
+    if (selectedVariatOption) {
+      showBootstrapModal("showImagesModal");
+    }
+  }, [selectedVariatOption]);
+
+  const handleDragEnd = (event: any, vIndex: number) => { // Pass vIndex to handleDragEnd
+    const { active, over } = event;
+
+    if (active.id !== over?.id) {
+      const [activeVIndexStr, optionIndexStrActive] = active.id.split("-");
+      const [overVIndexStr, optionIndexStrOver] = over?.id.split("-") || ["", ""];
+
+      const activeVIndex = parseInt(activeVIndexStr, 10);
+      const overVIndex = parseInt(overVIndexStr, 10);
+      const optionIndexActive = parseInt(optionIndexStrActive, 10);
+      const optionIndexOver = parseInt(optionIndexStrOver, 10);
+
+      // Only reorder if the dragged item and the drop target are within the same variant
+      if (activeVIndex === vIndex && overVIndex === vIndex && variants[vIndex]?.options) {
+        const newOptions = [...variants[vIndex].options];
+        const [draggedOption] = newOptions.splice(optionIndexActive, 1);
+        newOptions.splice(optionIndexOver, 0, draggedOption);
+
+        update(vIndex, { ...fields[vIndex], options: newOptions });
+
+        // Dispatch the action to update the backend for this specific variant
+        dispatch(
+          reorderVariantOptions({
+            productId: getValues("id"),
+            variantId: variants[vIndex].id,
+            newOrder: newOptions.map((option) => option.id),
+          })
+        );
+      }
+    }
+  };
+
+  return (
+    <div>
+      <fieldset className="mb-4">
+        <div className="d-flex justify-content-between align-items-center my-4">
+          <legend>Variants</legend>
+          <button
+            type="button"
+            className="btn w-fit fs-14 d-flex align-items-center gap-1 primary-text border-primary text-nowrap"
+            data-bs-toggle="modal"
+            data-bs-target="#variantModal"
+            onClick={() => addVariant(true)}
+          >
+            <div className="bg-white d-flex align-items-center justify-content-center p-1 rounded fw-medium">
+              <img src="/static/img/add-ic.svg" alt="Add Icon" className="bg-transparent" />
+            </div>
+            Add Variants
+          </button>
+        </div>
+        {variants.map((variant, vIndex) => (
+          <div key={vIndex} className="overflow-x-auto table-main">
+            <h6>{variant.name}</h6>
+            <DndContext key={`dnd-context-${vIndex}`} sensors={sensors} onDragEnd={(event) => handleDragEnd(event, vIndex)}>
+              <SortableContext items={variant.options.map((option) => `<span class="math-inline">\{vIndex\}\-</span>{option.id}`)}>
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th scope="col" className="fw-normal mb-3 text-nowrap">
+                        <FaArrowsAltV />
+                      </th>
+                      <th scope="col" className="fw-normal mb-3 text-nowrap">
+                        SKU
+                      </th>
+                      <th scope="col" className="fw-normal mb-3 text-nowrap">
+                        variant Options
+                      </th>
+                      <th scope="col" className="fw-normal mb-3 text-nowrap">
+                        Inventory
+                      </th>
+                      <th scope="col" className="fw-normal mb-3 text-nowrap">
+                        Available
+                      </th>
+                      <th scope="col" className="fw-normal mb-3 text-nowrap">
+                        Price
+                      </th>
+                      <th scope="col" className="fw-normal mb-3 text-nowrap">
+                        Upload Media
+                      </th>
+                      <th scope="col" className="fw-normal mb-3 text-nowrap">
+                        Action
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {variant.options.map((variantOption, voIndex) => (
+                      <SortableVariantOption
+                        key={variantOption.id}
+                        id={`<span class="math-inline">\{vIndex\}\-</span>{variantOption.id}`}
+                        variantOption={variantOption}
+                        vIndex={vIndex}
+                        voIndex={voIndex}
+                        handleVariantImageDelete={handleVariantImageDelete}
+                        setSelectedVariatOption={setSelectedVariatOption}
+                        update={update}
+                        remove={remove}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </SortableContext>
+            </DndContext>
+          </div>
+        ))}
+      </fieldset>
+      {/* Show Images Modal Start */}
+      <VariantsImagesModal
+        setSelectedVariatOption={setSelectedVariatOption}
+        selectedVariatOption={selectedVariatOption}
+        handleVariantImageDelete={handleVariantImageDelete}
+        handleVariantImageUpload={handleVariantImageUpload}
+        getValues={getValues}
+      />
+      {/* Show Images Modal End */}
+    </div>
+  );
+ };
+
+ export default Variants;
