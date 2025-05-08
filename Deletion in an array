@@ -1,4 +1,14 @@
-ggimport React, { useEffect, useState } from "react";
+bhgAh, I understand the issue now. It sounds like you've implemented the drag and drop functionality, but instead of only reordering the variant options within a specific variant's table, it's somehow allowing you to drag and drop rows across different variant tables. This would lead to incorrect data manipulation.
+
+To fix this, we need to ensure that the drag and drop context and the sortable items are correctly scoped to each individual variant table. Here's how we can adjust the Variants component to achieve this:
+
+Key Modification: Ensure that each variant's table has its own independent DndContext and SortableContext.
+
+Here's the updated Variants component:
+
+TypeScript
+
+ import React, { useEffect, useState } from "react";
  import { FormValues } from ".";
  import { FieldArrayWithId } from "react-hook-form";
  import { showBootstrapModal } from "../../../utils/utils";
@@ -252,3 +262,506 @@ ggimport React, { useEffect, useState } from "react";
  };
 
  export default Variants;
+Key Changes and Explanation:
+
+Scoped DndContext: We now have a separate <DndContext> wrapping the SortableContext for each individual variant's table (within the variants.map() loop). This ensures that drag and drop operations are isolated to the options within that specific variant.
+
+Scoped SortableContext: Similarly, the <SortableContext> is now inside the inner DndContext, and its items prop correctly maps the IDs of the variant options for that specific variant.
+
+vIndex in handleDragEnd:
+
+We now pass the current vIndex (the index of the variant in the variants array) to the handleDragEnd function.
+Inside handleDragEnd, we extract the activeVIndex and overVIndex from the active.id and over?.id.
+Crucial Check: We added a condition if (activeVIndex === vIndex && overVIndex === vIndex) to ensure that the drag and drop operation only proceeds if the dragged item and the drop target belong to the same variant.
+With these changes, the drag and drop functionality should now be correctly limited to reordering the variant options within their respective variant tables, preventing accidental dragging of rows across different variants.
+
+
+
+
+
+
+Still same problem we want to reorder row of varient table with in the table there can be verious variant I want to reorder only variant table row with in the other row give me updated code
+
+
+
+You are absolutely right to reiterate! My apologies for the persistent misunderstanding. It seems I'm still not fully grasping the exact table structure and the intended reordering behavior.
+
+Let's clarify the scenario:
+
+You have a main table displaying "Variants".
+Each row in this main "Variants" table represents a single variant (e.g., "Color", "Size").
+Within each of these variant rows, you have another table (the "variant options" table) that you want to reorder.
+The previous code was attempting to handle reordering of the variant options within their nested tables, which I believe is what you initially asked for. However, your latest clarification points to reordering the rows of the main "Variants" table itself.
+
+Let's adjust the code to enable reordering of the main "Variants" table rows.
+
+1. Updated Variants Component:
+
+TypeScript
+
+ import React, { useEffect, useState } from "react";
+ import { FormValues } from ".";
+ import { FieldArrayWithId } from "react-hook-form";
+ import { showBootstrapModal } from "../../../utils/utils";
+ import VariantsImagesModal from "./VariantsImagesModal";
+ import { DndContext, DragOverlay, useDrag, useDroppable, useSensors, useSensor, pointerSensor } from "@dnd-kit/core";
+ import { SortableContext, sortableKeyboardCoordinates, useSortable } from "@dnd-kit/sortable";
+ import { CSS } from "@dnd-kit/utilities";
+ import { FaArrowsAltV } from "react-icons/fa";
+ import { useDispatch } from "react-redux";
+ import { productActions } from "../../redux/slices/productSlice";
+ import { reorderVariants } from "../../redux/thunks/product/product"; // New thunk
+
+ interface IProps {
+  addVariant: (val: boolean) => void;
+  variants: FieldArrayWithId<FormValues, "variants", "id">[];
+  handleVariantImageDelete: (variantIndex: number, optionIndex: number, imgIndex: number) => void;
+  handleVariantImageUpload: (
+    e: React.ChangeEvent<HTMLInputElement>,
+    variantIndex: number,
+    optionIndex: number
+  ) => void;
+  getValues: any;
+  fields: any;
+  update: any;
+  remove: any;
+ }
+
+ interface SortableVariantRowProps {
+  id: string;
+  variant: FieldArrayWithId<FormValues, "variants", "id">;
+  index: number;
+  handleVariantImageDelete: (variantIndex: number, optionIndex: number, imgIndex: number) => void;
+  handleVariantImageUpload: (
+    e: React.ChangeEvent<HTMLInputElement>,
+    variantIndex: number,
+    optionIndex: number
+  ) => void;
+  getValues: any;
+  fields: any;
+  update: any;
+  remove: any;
+  setSelectedVariatOption: React.Dispatch<React.SetStateAction<any>>;
+ }
+
+ const SortableVariantRow: React.FC<SortableVariantRowProps> = ({
+  id,
+  variant,
+  index,
+  handleVariantImageDelete,
+  handleVariantImageUpload,
+  getValues,
+  fields,
+  update,
+  remove,
+  setSelectedVariatOption,
+ }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id: id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div key={index} ref={setNodeRef} style={style} {...attributes} {...listeners} className="overflow-x-auto table-main mb-3 border rounded">
+      <h6>
+        <FaArrowsAltV className="cursor-grab mr-2" /> {variant.name}
+      </h6>
+      <table className="table">
+        <thead>
+          <tr>
+            <th scope="col" className="fw-normal mb-3 text-nowrap">
+              SKU
+            </th>
+            <th scope="col" className="fw-normal mb-3 text-nowrap">
+              variant Options
+            </th>
+            {/* ... other table headers ... */}
+          </tr>
+        </thead>
+        <tbody>
+          {variant.options.map((variantOption, voIndex) => (
+            <tr key={voIndex}>
+              <td className="pb-3 pt-4">{variantOption.variantSku}</td>
+              <td className="pb-3 pt-4">{variantOption.name}</td>
+              {/* ... other table data ... */}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+ };
+
+ const Variants: React.FC<IProps> = ({
+  addVariant,
+  variants,
+  handleVariantImageDelete,
+  handleVariantImageUpload,
+  getValues,
+  fields,
+  update,
+  remove,
+ }) => {
+  const [selectedVariatOption, setSelectedVariatOption] = useState<any>(null);
+  const dispatch = useDispatch();
+  const sensors = useSensors(useSensor(pointerSensor, { activationConstraint: { distance: 5 } }));
+
+  useEffect(() => {
+    if (selectedVariatOption) {
+      showBootstrapModal("showImagesModal");
+    }
+  }, [selectedVariatOption]);
+
+  const handleDragEnd = (event: any) => {
+    const { active, over } = event;
+
+    if (active.id !== over?.id) {
+      const oldIndex = variants.findIndex((variant) => variant.id === active.id);
+      const newIndex = variants.findIndex((variant) => variant.id === over?.id);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const newVariants = [...variants];
+        const [draggedVariant] = newVariants.splice(oldIndex, 1);
+        newVariants.splice(newIndex, 0, draggedVariant);
+
+        // Update the form state with the reordered variants
+        newVariants.forEach((variant, index) => {
+          update(index, { ...fields[index], id: variant.id }); // Ensure correct order in fields
+        });
+
+        // Dispatch action to update the backend with the new order of variants
+        dispatch(
+          reorderVariants({
+            productId: getValues("id"),
+            newOrder: newVariants.map((variant) => variant.id),
+          })
+        );
+      }
+    }
+  };
+
+  return (
+    <div>
+      <fieldset className="mb-4">
+        <div className="d-flex justify-content-between align-items-center my-4">
+          <legend>Variants</legend>
+          <button
+            type="button"
+            className="btn w-fit fs-14 d-flex align-items-center gap-1 primary-text border-primary text-nowrap"
+            data-bs-toggle="modal"
+            data-bs-target="#variantModal"
+            onClick={() => addVariant(true)}
+          >
+            <div className="bg-white d-flex align-items-center justify-content-center p-1 rounded fw-medium">
+              <img src="/static/img/add-ic.svg" alt="Add Icon" className="bg-transparent" />
+            </div>
+            Add Variants
+          </button>
+        </div>
+        <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+          <SortableContext items={variants.map((variant) => variant.id)}>
+            {variants.map((variant, index) => (
+              <SortableVariantRow
+                key={variant.id}
+                id={variant.id}
+                variant={variant}
+                index={index}
+                handleVariantImageDelete={handleVariantImageDelete}
+                handleVariantImageUpload={handleVariantImageUpload}
+                getValues={getValues}
+                fields={fields}
+                update={update}
+                remove={remove}
+                setSelectedVariatOption={setSelectedVariatOption}
+              />
+            ))}
+          </SortableContext>
+        </DndContext>
+      </fieldset>
+      {/* Show Images Modal Start */}
+      <VariantsImagesModal
+        setSelectedVariatOption={setSelectedVariatOption}
+        selectedVariatOption={selectedVariatOption}
+        handleVariantImageDelete={handleVariantImageDelete}
+        handleVariantImageUpload={handleVariantImageUpload}
+        getValues={getValues}
+      />
+      {/* Show Images Modal End */}
+    </div>
+  );
+ };
+
+ export default Variants;
+2. Updated Redux Slice (productSlice.ts):
+
+TypeScript
+
+ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+ import { AllOrderResponse } from "../../tsModels/checkOut";
+ import { Order, SingleTrip } from "../../tsModels/order";
+ import { RootState } from "../store";
+ import {
+  DeliveryFulfillment,
+  GetAllTrips,
+  GetOrderByOrderId,
+  UpdateOrderDetails,
+  UpdateOrderStatus,
+ } from "../thunks/order/order";
+ import { getAllOrders, getShopProducts, reorderVariantOptions as reorderVariantOptionsApi, reorderVariants as reorderVariantsApi } from "../thunks/product/product"; // Import the new thunk
+
+ interface ReorderVariantOptionsPayload {
+  productId: string;
+  variantId: string;
+  newOrder: string[];
+ }
+
+ interface ReorderVariantsPayload {
+  productId: string;
+  newOrder: string[]; // Array of variant IDs in the new order
+ }
+
+ export const reorderVariantOptions = createAsyncThunk(
+  "product/reorderVariantOptions",
+  async (payload: ReorderVariantOptionsPayload, { rejectWithValue }) => {
+    try {
+      const response = await reorderVariantOptionsApi(payload);
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || "An error occurred");
+    }
+  }
+ );
+
+ export const reorderVariants = createAsyncThunk(
+  "product/reorderVariants",
+  async (payload: ReorderVariantsPayload, { rejectWithValue }) => {
+    try {
+      const response = await reorderVariantsApi(payload);
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || "An error occurred");
+    }
+  }
+ );
+
+ const initialState = {
+  isLoading: false,
+  isAllOrderLoading: false,
+  isOrderStatusChanged: false,
+  isProductAssign: false,
+  products: [],
+  allorders: [] as Order[],
+  allTripOrder: [] as SingleTrip[],
+  singleOrder: {} as AllOrderResponse,
+  deliveryStatus: "",
+  trip: {} as SingleTrip,
+  isOrderCompleted: false,
+  isReordering: false, // Loading state for variant options reordering
+  reorderSuccess: false, // Success state for variant options reordering
+  reorderError: null, // Error state for variant options reordering
+  isReorderingVariants: false, // New loading state for variants reordering
+  reorderVariantsSuccess: false, // New success state for variants reordering
+  reorderVariantsError: null, // New error state for variants reordering
+ };
+
+ const productSlice = createSlice({
+  name: "product",
+  initialState,
+  reducers: {
+    resetDeliveryStatusState: (state) => {
+      state.deliveryStatus = "";
+      state.singleOrder = {} as AllOrderResponse;
+      state.isOrderStatusChanged = false;
+      state.isProductAssign = false;
+      state.isOrderCompleted = false;
+      state.reorderSuccess = false;
+      state.reorderError = null;
+      state.reorderVariantsSuccess = false;
+      state.reorderVariantsError = null;
+    },
+    resetOrderCompleteState: (state) => {
+      state.isOrderCompleted = false;
+    },
+  },
+  extraReducers: (builder) => {
+    // ... existing extraReducers for getShopProducts, getAllOrders, etc. ...
+    builder.addCase(reorderVariantOptions.pending, (state) => {
+      state.isReordering = true;
+      state.reorderSuccess = false;
+      state.reorderError = null;
+    });
+    builder.addCase(reorderVariantOptions.fulfilled, (state) => {
+      state.isReordering = false;
+      state.reorderSuccess = true;
+    });
+    builder.addCase(reorderVariantOptions.rejected, (state, action) => {
+      state.isReordering = false;
+      state.reorderError = action.payload as string | null;
+    });
+    builder.addCase(reorderVariants.pending, (state) => {
+      state.isReorderingVariants = true;
+      state.reorderVariantsSuccess = false;
+      state.reorderVariantsError = null;
+    });
+    builder.addCase(reorderVariants.fulfilled, (state) => {
+      state.isReorderingVariants = false;
+      state.reorderVariantsSuccess = true;
+    });
+    builder.addCase(reorderVariants.rejected, (state, action) => {
+      state.isReorderingVariants = false;
+      state.reorderVariantsError = action.payload as string | null;
+    });
+  },
+ });
+
+ // Actions
+ export const productActions = productSlice.actions;
+
+ // Selectors
+ export const SelectProducts = (state: RootState) => {
+  return state.product.products;
+ };
+ export const SelectLoading = (state: RootState) => {
+  return state.product.isLoading;
+ };
+ export const SelectOrderLoading = (state: RootState) => {
+  return state.product.isAllOrderLoading;
+ };
+ export const SelectAllOrders = (state: RootState) => {
+  return state.product.allorders;
+ };
+ // ... other selectors ...
+ export const SelectIsReordering = (state: RootState) => {
+  return state.product.isReordering;
+ };
+ export const SelectReorderSuccess = (state: RootState) => {
+  return state.product.reorderSuccess;
+ };
+ export const SelectReorderError = (state: RootState) => {
+  return state.product.reorderError;
+ };
+ export const SelectIsReorderingVariants = (state: RootState) => {
+  return state.product.isReorderingVariants;
+ };
+ export const SelectReorderVariantsSuccess = (state: RootState) => {
+  return state.product.reorderVariantsSuccess;
+ };
+ export const SelectReorderVariantsError = (state: RootState) => {
+  return state.product.reorderVariantsError;
+ };
+
+ // Reducer
+ const productReducer = productSlice.reducer;
+ export default productReducer;
+3. Updated Redux Thunk (src/redux/thunks/product/product.ts):
+
+TypeScript
+
+ import { createAsyncThunk } from "@reduxjs/toolkit";
+ import { api } from "../../api";
+ import { ProductList } from "../../../tsModels/product";
+
+ export const getShopProducts = createAsyncThunk(
+  "product/getShopProducts",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await api.get("/products"); // Adjust your API endpoint
+      return response.data as ProductList[];
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || "An error occurred");
+    }
+  }
+ );
+
+ interface ReorderVariantOptionsPayload {
+  productId: string;
+  variantId: string;
+  newOrder: string[];
+ }
+
+ export const reorderVariantOptions = createAsyncThunk(
+  "product/reorderVariantOptionsApi",
+  async (payload: ReorderVariantOptionsPayload, { rejectWithValue }) => {
+    try {
+      const response = await api.post(`/products/${payload.productId}/variants/${payload.variantId}/reorder`, {
+        newOrder: payload.newOrder,
+      });
+      return response;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || "An error occurred");
+    }
+  }
+ );
+
+ interface ReorderVariantsPayload {
+  productId: string;
+  newOrder: string[]; // Array of variant IDs in the new order
+ }
+
+ export const reorderVariants = createAsyncThunk(
+  "product/reorderVariantsApi",
+  async (payload: ReorderVariantsPayload, { rejectWithValue }) => {
+    try {
+      const response = await api.post(`/products/${payload.productId}/reorder-variants`, {
+        newOrder: payload.newOrder,
+      });
+      return response;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || "An error occurred");
+    }
+  }
+ );
+4. Updated Backend (Node.js/Express with TypeScript):
+
+a) Router (src/routes/product.routes.ts or similar):
+
+TypeScript
+
+ import express from "express";
+ import {
+  getProducts,
+  reorderVariantOptions,
+  reorderVariants, // Import the new controller function
+ } from "../controllers/product.controller";
+ import { authenticate } from "../middleware/auth"; // Assuming you have authentication middleware
+
+ const router = express.Router();
+
+ router.get("/", getProducts);
+ router.post("/:productId/variants/:variantId/reorder", authenticate, reorderVariantOptions);
+ router.post("/:productId/reorder-variants", authenticate, reorderVariants); // New route
+
+ export default router;
+b) Controller (src/controllers/product.controller.ts):
+
+TypeScript
+
+ import { Request, Response } from "express";
+ import { ProductModel } from "../models/product.model";
+ import mongoose from "mongoose";
+
+ // ... (getProducts and reorderVariantOptions remain the same) ...
+Generate code to prototype this with Canvas
+
+Try now
+
+
+
+
+
+
+
+
+
+
+
+Canvas
+
