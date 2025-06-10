@@ -1,1905 +1,693 @@
-ghujjj
-Conversation with Gemini
+Of course! Let's integrate emoji reactions and a message reply feature, similar to WhatsApp, into the chat application we've been building.
 
+This is a significant update, so we'll touch the database model, the backend socket service, and several frontend components.
 
-Conversation with Gemini
+⚠️ Prerequisite: Install New Package
+First, navigate to your client directory and install the emoji picker package:
 
+Bash
 
+cd client
+npm install emoji-picker-react
+1. Backend Updates (Server)
+We need to modify our database schema to store reactions and reply information.
 
-
-
-
-
-Conversation with Gemini
-
-
-
-
-
-import React, { useEffect, useState } from "react";
-
-import { FormValues } from ".";
-
-import { FieldArrayWithId } from "react-hook-form";
-
-import { showBootstrapModal } from "../../../utils/utils";
-
-import VariantsImagesModal from "./VariantsImagesModal";
-
-
-
-interface IProps {
-
-addVariant: (val: boolean) => void;
-
-variants: FieldArrayWithId<FormValues, "variants", "id">[];
-
-handleVariantImageDelete: (variantIndex: number, optionIndex: number, imgIndex: number) => void;
-
-handleVariantImageUpload: (
-
-e: React.ChangeEvent<HTMLInputElement>,
-
-variantIndex: number,
-
-optionIndex: number
-
-) => void;
-
-getValues: any;
-
-fields: any;
-
-update: any;
-
-remove: any;
-
-}
-
-
-
-const Variants: React.FC<IProps> = ({
-
-addVariant,
-
-variants,
-
-handleVariantImageDelete,
-
-handleVariantImageUpload,
-
-getValues,
-
-fields,
-
-update,
-
-remove,
-
-}) => {
-
-const [selectedVariatOption, setSelectedVariatOption] = useState<any>(null);
-
-
-
-useEffect(() => {
-
-if (selectedVariatOption) {
-
-showBootstrapModal("showImagesModal");
-
-}
-
-}, [selectedVariatOption]);
-
-
-
-return (
-
-<div>
-
-<fieldset className="mb-4">
-
-<div className="d-flex justify-content-between align-items-center my-4">
-
-<legend>Variants</legend>
-
-<button
-
-type="button"
-
-className="btn w-fit fs-14 d-flex align-items-center gap-1 primary-text border-primary text-nowrap"
-
-data-bs-toggle="modal"
-
-data-bs-target="#variantModal"
-
-onClick={() => addVariant(true)}
-
->
-
-<div className="bg-white d-flex align-items-center justify-content-center p-1 rounded fw-medium">
-
-<img src="/static/img/add-ic.svg" alt="Add Icon" className="bg-transparent" />
-
-</div>
-
-Add Variants
-
-</button>
-
-</div>
-
-{variants.map((variant, vIndex) => (
-
-<div key={vIndex} className="overflow-x-auto table-main">
-
-<h6>{variant.name}</h6>
-
-<table className="table">
-
-<thead>
-
-<tr>
-
-<th scope="col" className="fw-normal mb-3 text-nowrap">
-
-SKU
-
-</th>
-
-<th scope="col" className="fw-normal mb-3 text-nowrap">
-
-variant Options
-
-</th>
-
-<th scope="col" className="fw-normal mb-3 text-nowrap">
-
-Inventory
-
-</th>
-
-<th scope="col" className="fw-normal mb-3 text-nowrap">
-
-Available
-
-</th>
-
-<th scope="col" className="fw-normal mb-3 text-nowrap">
-
-Price
-
-</th>
-
-<th scope="col" className="fw-normal mb-3 text-nowrap">
-
-Upload Media
-
-</th>
-
-<th scope="col" className="fw-normal mb-3 text-nowrap">
-
-Action
-
-</th>
-
-</tr>
-
-</thead>
-
-<tbody>
-
-{variant.options.map((variantOption, voIndex) => {
-
-return (
-
-<tr key={voIndex}>
-
-<td className="pb-3 pt-4">{variantOption.variantSku}</td>
-
-<td className="pb-3 pt-4">{variantOption.name}</td>
-
-<td className="pb-3 pt-4">{variantOption.variantInventory}</td>
-
-<td className="pb-3 pt-4">-</td>
-
-<td className="pb-3 pt-4">{variantOption.variantPrice}</td>
-
-<td className="pb-3 pt-4">
-
-<div
-
-className="cursor-pointer"
-
-onClick={() =>
-
-setSelectedVariatOption({
-
-...variantOption,
-
-selectedVariatIndex: vIndex,
-
-selectedVariatOptionIndex: voIndex,
-
-})
-
-}
-
->
-
-Show Images
-
-</div>
-
-</td>
-
-<td className="pb-3 pt-4 text-nowrap">
-
-<span className="shadow-sm rounded bg-white px-2 py-1 cursor-pointer">
-
-<img src="/static/img/edit-ic.svg" alt="Edit Icon" />
-
-</span>
-
-<span
-
-className="shadow-sm rounded bg-white px-2 py-1 cursor-pointer mx-2"
-
-onClick={() => {
-
-const updatedOptions = [...fields[vIndex].options];
-
-updatedOptions.splice(voIndex, 1);
-
-if (!updatedOptions.length) {
-
-remove(vIndex);
-
-} else {
-
-update(vIndex, {
-
-...fields[vIndex],
-
-options: updatedOptions,
-
-});
-
-}
-
-}}
-
->
-
-<img src="/static/img/delete-ic.svg" alt="Delete Icon" />
-
-</span>
-
-<span className="shadow-sm rounded bg-white px-2 py-1 cursor-pointer">
-
-<img src="/static/img/ic-delist.svg" alt="Delist Icon" width={11} />
-
-</span>
-
-</td>
-
-</tr>
-
-);
-
-})}
-
-</tbody>
-
-</table>
-
-</div>
-
-))}
-
-</fieldset>
-
-{/* Show Images Modal Start */}
-
-<VariantsImagesModal
-
-setSelectedVariatOption={setSelectedVariatOption}
-
-selectedVariatOption={selectedVariatOption}
-
-handleVariantImageDelete={handleVariantImageDelete}
-
-handleVariantImageUpload={handleVariantImageUpload}
-
-getValues={getValues}
-
-/>
-
-{/* Show Images Modal End */}
-
-</div>
-
-);
-
-};
-
-
-
-export default Variants;
-
-import { createSlice } from "@reduxjs/toolkit";
-
-import { AllOrderResponse } from "../../tsModels/checkOut";
-
-import { Order, SingleTrip } from "../../tsModels/order";
-
-import { RootState } from "../store";
-
-import {
-
-DeliveryFulfillment,
-
-GetAllTrips,
-
-GetOrderByOrderId,
-
-UpdateOrderDetails,
-
-
-
-UpdateOrderStatus,
-
-} from "../thunks/order/order";
-
-import { getAllOrders, getShopProducts } from "../thunks/product/product";
-
-
-
-const initialState = {
-
-isLoading: false,
-
-isAllOrderLoading: false,
-
-isOrderStatusChanged: false,
-
-isProductAssign:false,
-
-products: [],
-
-allorders: [] as Order[],
-
-allTripOrder: [] as SingleTrip[],
-
-singleOrder: {} as AllOrderResponse,
-
-deliveryStatus: "",
-
-trip: {} as SingleTrip,
-
-isOrderCompleted: false,
-
-};
-
-
-
-const productSlice = createSlice({
-
-name: "product",
-
-initialState,
-
-reducers: {
-
-resetDeliveryStatusState: (state) => {
-
-state.deliveryStatus = "";
-
-state.singleOrder = {} as AllOrderResponse;
-
-state.isOrderStatusChanged = false;
-
-state.isProductAssign= false;
-
-state.isOrderCompleted =false
-
-},
-
-resetOrderCompleteState: (state) => {
-
-state.isOrderCompleted = false;
-
-},
-
-},
-
-extraReducers: (builder) => {
-
-builder.addCase(getShopProducts.pending, (state) => {
-
-state.isLoading = true;
-
-});
-
-builder.addCase(getShopProducts.fulfilled, (state, action) => {
-
-state.isLoading = false;
-
-state.products = action.payload;
-
-});
-
-builder.addCase(getShopProducts.rejected, (state) => {
-
-state.isLoading = false;
-
-});
-
-builder.addCase(getAllOrders.pending, (state) => {
-
-state.isAllOrderLoading = true;
-
-state.allTripOrder = [];
-
-});
-
-builder.addCase(getAllOrders.fulfilled, (state, action) => {
-
-state.isAllOrderLoading = false;
-
-state.allorders = action.payload;
-
-});
-
-builder.addCase(getAllOrders.rejected, (state) => {
-
-state.isAllOrderLoading = false;
-
-});
-
-builder.addCase(GetOrderByOrderId.pending, (state) => {
-
-state.isAllOrderLoading = true;
-
-});
-
-builder.addCase(GetOrderByOrderId.fulfilled, (state, action) => {
-
-state.isAllOrderLoading = false;
-
-state.singleOrder = action.payload;
-
-});
-
-builder.addCase(GetOrderByOrderId.rejected, (state) => {
-
-state.isAllOrderLoading = false;
-
-state.isProductAssign =false
-
-});
-
-builder.addCase(DeliveryFulfillment.pending, (state) => {
-
-state.isAllOrderLoading = true;
-
-state.isProductAssign=false
-
-});
-
-builder.addCase(DeliveryFulfillment.fulfilled, (state, action) => {
-
-state.deliveryStatus= action.payload.data
-
-state.isProductAssign =true
-
-state.isAllOrderLoading = false;
-
-});
-
-builder.addCase(DeliveryFulfillment.rejected, (state) => {
-
-state.isAllOrderLoading = false;
-
-state.isOrderStatusChanged = false;
-
-});
-
-builder.addCase(GetAllTrips.pending, (state) => {
-
-state.isAllOrderLoading = true;
-
-state.allorders = [];
-
-});
-
-builder.addCase(GetAllTrips.fulfilled, (state, action) => {
-
-state.isAllOrderLoading = false;
-
-state.allTripOrder = action.payload;
-
-});
-
-builder.addCase(GetAllTrips.rejected, (state) => {
-
-state.isAllOrderLoading = false;
-
-});
-
-builder.addCase(UpdateOrderStatus.pending, (state) => {
-
-state.isLoading = true;
-
-state.isOrderCompleted = false;
-
-});
-
-builder.addCase(UpdateOrderStatus.fulfilled, (state) => {
-
-state.isLoading = false;
-
-state.isOrderCompleted = true;
-
-});
-
-builder.addCase(UpdateOrderStatus.rejected, (state) => {
-
-state.isLoading = false;
-
-state.isOrderCompleted = false;
-
-});
-
-builder.addCase(UpdateOrderDetails.pending, (state) => {
-
-state.isLoading = true;
-
-});
-
-builder.addCase(UpdateOrderDetails.fulfilled, (state) => {
-
-state.isLoading = false;
-
-});
-
-builder.addCase(UpdateOrderDetails.rejected, (state) => {
-
-state.isLoading = false;
-
-});
-
-},
-
-});
-
-
-
-// Actions
-
-export const productActions = productSlice.actions;
-
-
-
-// Selectors
-
-export const SelectProducts = (state: RootState) => {
-
-return state.product.products;
-
-};
-
-export const SelectLoading = (state: RootState) => {
-
-return state.product.isLoading;
-
-};
-
-export const SelectOrderLoading = (state: RootState) => {
-
-return state.product.isAllOrderLoading;
-
-};
-
-export const SelectAllOrders = (state: RootState) => {
-
-return state.product.allorders;
-
-};
-
-export const SelectAllTripOrders = (state: RootState) => {
-
-return state.product.allTripOrder;
-
-};
-
-export const SelectOrder = (state: RootState) => {
-
-return state.product.singleOrder;
-
-};
-
-export const SelecteDeliveryStatus = (state: RootState) => {
-
-return state.product.deliveryStatus;
-
-};
-
-export const SelectIsOrderStatusChanged = (state: RootState) => {
-
-return state.product.isOrderStatusChanged;
-
-};
-
-export const SelectIsProductAssign = (state: RootState) => {
-
-return state.product.isProductAssign;
-
-};
-
-export const SelectTrip = (state: RootState) => {
-
-return state.product.trip;
-
-};
-
-export const SelectIsOrderCompleted = (state: RootState) => {
-
-return state.product.isOrderCompleted;
-
-};
-
-// Reducer
-
-const productReducer = productSlice.reducer;
-
-export default productReducer;
-
-
-
-import mongoose from "mongoose";
-
-const VariantOptionSchema = new mongoose.Schema({
-
-name: String,
-
-variantImage: {
-
-type: Array,
-
-},
-
-variantSku: String,
-
-variantInventory: Number,
-
-variantPrice: Number
-
-});
-
-
-
-const VariantSchema = new mongoose.Schema({
-
-variantName: String,
-
-options: [VariantOptionSchema],
-
-});
-
-const ProductListschema = new mongoose.Schema({
-
-productName: {
-
-type: String,
-
-},
-
-description: {
-
-type: String,
-
-},
-
-category: [
-
-{
-
-categoryName: {
-
-type: String,
-
-},
-
-innerSubCategory: {
-
-type: String,
-
-},
-
-mainCategory: {
-
-type: String,
-
-},
-
-mostInnerSubCategory: {
-
-type: String,
-
-},
-
-subCategory: {
-
-type: String,
-
-},
-
-value: {
-
-type: String,
-
-},
-
-},
-
-],
-
-inStock: {
-
-type: Boolean,
-
-},
-
-variants: [VariantSchema],
-
-});
-
-const ProductSchema = new mongoose.Schema({
-
-userId: {
-
-type: String,
-
-},
-
-businessName: {
-
-type: String,
-
-required: true,
-
-},
-
-productNumber: {
-
-type: Number,
-
-default: 0,
-
-},
-
-products: [ProductListschema],
-
-});import { AllOrderResponse } from "./checkOut";
-
-export interface OrderDetailsPayload {
-
-order: AllOrderResponse;
-
-pickUpAddress: any;
-
-deliveryLocation: string | undefined;
-
-lat: number;
-
-lng: number;
-
-status: string;
-
-tripId: string;
-
-}
-
-export interface SingleTrip {
-
-businessid: string;
-
-courier: string;
-
-courierid: number;
-
-createdAt: string;
-
-id: string;
-
-orderid: string;
-
-state: string;
-
-}
-
-
-
-export interface Order {
-
-source: {
-
-lat: number;
-
-lng: number;
-
-};
-
-destination: {
-
-lat: number;
-
-lng: number;
-
-};
-
-_id: string;
-
-
-
-userId: string;
-
-orderId: string;
-
-businessId: string;
-
-firstName: string;
-
-lastName: string;
-
-phoneNumber: string;
-
-address: string;
-
-product: Product[];
-
-tax: number;
-
-tripId: string;
-
-email: string;
-
-estimatedTotal: number;
-
-orderStatus: "CREATED" | "STARTED" | "OUT_FOR_DELIVERY" | "COMPLETED" | "CANCELLED";
-
-orderDate: string; // ISO date string
-
-businessAddress: string;
-
-businessCity: string;
-
-businessState: string;
-
-businessZipcode: string;
-
-businessCountry: string;
-
-businessName: string;
-
-businessEmail: string;
-
-businessPhone: string;
-
-createdAt: string;
-
-updatedAt: string;
-
-
-
-__v: number;
-
-}
-
-
-
-export interface Product {
-
-productName: string;
-
-description: string;
-
-productImages: ProductImage[];
-
-category: Category[];
-
-quantity: string;
-
-price: number;
-
-inStock: boolean;
-
-sku: string;
-
-variants: Variant[];
-
-_id: string;
-
-count: number;
-
-businessName: string;
-
-selectedVariants: SelectedVariant[];
-
-uuid: string;
-
-}
-
-
-
-interface ProductImage {
-
-imagePath: string;
-
-imageName: string;
-
-}
-
-
-
-interface Category {
-
-categoryName: string;
-
-mainCategory: string;
-
-subCategory: string;
-
-value: string;
-
-_id: string;
-
-innerSubCategory?: string; // optional because some categories don't have it
-
-}
-
-
-
-export interface Variant {
-
-variantName: string;
-
-options: VariantOption[];
-
-_id: string;
-
-}
-
-
-
-export interface VariantOption {
-
-name: string;
-
-varientImage: VariantImage[];
-
-varientSku: string;
-
-_id: string;
-
-}
-
-
-
-interface VariantImage {
-
-imagePath: string;
-
-imageName: string;
-
-}
-
-
-
-type SelectedVariant = any; // currently an empty array [] — update if needed
-
-
-
-
-
-export const ProductModel = mongoose.model("Product", ProductSchema);
-
-use typescript redux and mern i want to add drag and drop or you can say reorder oh table data of variant use dnd kit for that add a icon fron react-icon from ehich data should also update in database we will reorder create a api for reorder and updated data in database no chnge in the schema give me full updated code give me full updated code *. Use typescript for backend api also give me full updated code nothing we are just rearrange the variant table data nothing else everything will be same just reordering the table row
-
-
-
-Okay, I understand! You want to implement drag and drop reordering for the variant options within each variant in your React component. When the user reorders these options, you also want to update the order in your MongoDB database using a new backend API endpoint.
-
-Here's the updated code, incorporating dnd-kit for drag and drop in the frontend and a new API endpoint in your backend (using TypeScript with Express and Mongoose):
-
-1. Frontend (React/Redux):
+server/src/models/Message.ts (Updated)
+We'll add two new fields: reactions and replyTo.
 
 TypeScript
 
- import React, { useEffect, useState } from "react";
- import { FormValues } from ".";
- import { FieldArrayWithId } from "react-hook-form";
- import { showBootstrapModal } from "../../../utils/utils";
- import VariantsImagesModal from "./VariantsImagesModal";
- import { DndContext, DragOverlay, useDrag, useDroppable, useSensors, useSensor, pointerSensor } from "@dnd-kit/core";
- import { SortableContext, sortableKeyboardCoordinates, useSortable } from "@dnd-kit/sortable";
- import { CSS } from "@dnd-kit/utilities";
- import { FaArrowsAltV } from "react-icons/fa";
- import { useDispatch } from "react-redux";
- import { productActions } from "../../redux/slices/productSlice";
- import { reorderVariantOptions } from "../../redux/thunks/product/product"; // Import the new thunk
+import mongoose, { Document, Schema, Types } from 'mongoose';
 
- interface IProps {
-  addVariant: (val: boolean) => void;
-  variants: FieldArrayWithId<FormValues, "variants", "id">[];
-  handleVariantImageDelete: (variantIndex: number, optionIndex: number, imgIndex: number) => void;
-  handleVariantImageUpload: (
-    e: React.ChangeEvent<HTMLInputElement>,
-    variantIndex: number,
-    optionIndex: number
-  ) => void;
-  getValues: any;
-  fields: any;
-  update: any;
-  remove: any;
- }
+// Interface for a reaction
+export interface IReaction {
+    emoji: string;
+    user: Types.ObjectId | string;
+}
 
- interface SortableItemProps {
-  id: string;
-  variantOption: any;
-  vIndex: number;
-  voIndex: number;
-  handleVariantImageDelete: (variantIndex: number, optionIndex: number, imgIndex: number) => void;
-  setSelectedVariatOption: React.Dispatch<React.SetStateAction<any>>;
-  update: any;
-  remove: any;
- }
+// Interface for the original message preview in a reply
+export interface IOriginalMessage {
+    _id: Types.ObjectId | string;
+    content: string;
+    sender: { // Store basic sender info to avoid extra lookups
+        _id: Types.ObjectId | string;
+        username: string;
+    };
+}
 
- const SortableVariantOption: React.FC<SortableItemProps> = ({
-  id,
-  variantOption,
-  vIndex,
-  voIndex,
-  handleVariantImageDelete,
-  setSelectedVariatOption,
-  update,
-  remove,
- }) => {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({ id: id });
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
+export interface IMessage extends Document {
+  sender: Types.ObjectId | { _id: string, username: string, avatar?: string };
+  receiver: Types.ObjectId | { _id: string, username: string, avatar?: string };
+  content: string;
+  timestamp: Date;
+  read: boolean;
+  // --- NEW FIELDS ---
+  reactions: IReaction[];
+  replyTo?: IOriginalMessage; // Holds a reference to the message being replied to
+}
 
-  return (
-    <tr ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <td className="pb-3 pt-4">
-        <FaArrowsAltV className="cursor-grab" />
-      </td>
-      <td className="pb-3 pt-4">{variantOption.variantSku}</td>
-      <td className="pb-3 pt-4">{variantOption.name}</td>
-      <td className="pb-3 pt-4">{variantOption.variantInventory}</td>
-      <td className="pb-3 pt-4">-</td>
-      <td className="pb-3 pt-4">{variantOption.variantPrice}</td>
-      <td className="pb-3 pt-4">
-        <div
-          className="cursor-pointer"
-          onClick={() =>
-            setSelectedVariatOption({
-              ...variantOption,
-              selectedVariatIndex: vIndex,
-              selectedVariatOptionIndex: voIndex,
-            })
-          }
-        >
-          Show Images
-        </div>
-      </td>
-      <td className="pb-3 pt-4 text-nowrap">
-        <span className="shadow-sm rounded bg-white px-2 py-1 cursor-pointer">
-          <img src="/static/img/edit-ic.svg" alt="Edit Icon" />
-        </span>
-        <span
-          className="shadow-sm rounded bg-white px-2 py-1 cursor-pointer mx-2"
-          onClick={() => {
-            const updatedOptions = [...(update.items[vIndex]?.options || [])];
-            updatedOptions.splice(voIndex, 1);
-            if (!updatedOptions.length) {
-              remove(vIndex);
-            } else {
-              update(vIndex, {
-                ...update.items[vIndex],
-                options: updatedOptions,
-              });
+const ReactionSchema: Schema = new Schema({
+    emoji: { type: String, required: true },
+    user: { type: Schema.Types.ObjectId, ref: 'User', required: true }
+}, { _id: false }); // _id is not needed for sub-documents here
+
+const OriginalMessageSchema: Schema = new Schema({
+    _id: { type: Schema.Types.ObjectId, ref: 'Message', required: true },
+    content: { type: String, required: true },
+    sender: {
+        _id: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+        username: { type: String, required: true },
+    }
+}, { _id: false });
+
+
+const MessageSchema: Schema = new Schema({
+  sender: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  receiver: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  content: { type: String, required: true },
+  timestamp: { type: Date, default: Date.now },
+  read: { type: Boolean, default: false },
+  // --- NEW FIELDS ---
+  reactions: [ReactionSchema],
+  replyTo: { type: OriginalMessageSchema, required: false }
+});
+
+export default mongoose.model<IMessage>('Message', MessageSchema);
+server/src/services/socketService.ts (Updated)
+Now, let's update our Socket.IO service to handle sending replies and adding reactions.
+
+TypeScript
+
+import { Server as SocketIOServer, Socket } from 'socket.io';
+import http from 'http';
+import Message, { IMessage } from '../models/Message';
+import User from '../models/User';
+import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
+import dotenv from 'dotenv';
+
+dotenv.config();
+const JWT_SECRET = process.env.JWT_SECRET || 'yourfallbacksecret';
+
+interface UserSocketMap {
+    [userId: string]: string; // userId: socketId
+}
+
+const userSockets: UserSocketMap = {};
+
+export const initializeSocketIO = (httpServer: http.Server) => {
+    const io = new SocketIOServer(httpServer, {
+        cors: {
+            origin: process.env.CLIENT_URL || "http://localhost:3000",
+            methods: ["GET", "POST"],
+        },
+    });
+
+    io.use(async (socket, next) => {
+        // ... (Socket.IO auth middleware remains the same)
+        const token = socket.handshake.auth.token;
+        if (!token) {
+            return next(new Error('Authentication error: Token not provided'));
+        }
+        try {
+            const decoded = jwt.verify(token, JWT_SECRET) as { user: { id: string } };
+            (socket as any).userId = decoded.user.id;
+            next();
+        } catch (err) {
+            console.error("Socket auth error:", err);
+            return next(new Error('Authentication error: Invalid token'));
+        }
+    });
+
+    io.on('connection', async (socket: Socket) => {
+        const userId = (socket as any).userId;
+        console.log(`User connected: ${socket.id}, userId: ${userId}`);
+        userSockets[userId] = socket.id;
+
+        // ... (online/offline status logic remains the same)
+        try {
+            await User.findByIdAndUpdate(userId, { online: true });
+            socket.broadcast.emit('userOnline', { userId });
+        } catch (error) {
+            console.error("Error updating user to online:", error);
+        }
+
+
+        // --- UPDATED: Handle incoming messages (with reply functionality) ---
+        socket.on('sendMessage', async (data: { receiverId: string; content: string; replyTo?: string }) => {
+            const { receiverId, content, replyTo } = data;
+            const senderId = userId;
+
+            try {
+                let originalMessageInfo;
+                if (replyTo) {
+                    const originalMessage = await Message.findById(replyTo).populate('sender', 'username');
+                    if (originalMessage) {
+                         originalMessageInfo = {
+                            _id: originalMessage._id,
+                            content: originalMessage.content,
+                            sender: {
+                                _id: (originalMessage.sender as any)._id,
+                                username: (originalMessage.sender as any).username,
+                            }
+                         };
+                    }
+                }
+
+                const newMessage = new Message({
+                    sender: senderId,
+                    receiver: receiverId,
+                    content: content,
+                    replyTo: originalMessageInfo,
+                });
+                const savedMessage = await newMessage.save();
+                const populatedMessage = await Message.findById(savedMessage._id)
+                    .populate('sender', 'username avatar _id')
+                    .populate('receiver', 'username avatar _id');
+
+                const receiverSocketId = userSockets[receiverId];
+                if (receiverSocketId) {
+                    io.to(receiverSocketId).emit('receiveMessage', populatedMessage);
+                }
+                socket.emit('receiveMessage', populatedMessage);
+
+            } catch (err) {
+                console.error('Error saving or sending message:', err);
+                socket.emit('messageError', { error: 'Failed to send message' });
             }
-          }}
-        >
-          <img src="/static/img/delete-ic.svg" alt="Delete Icon" />
-        </span>
-        <span className="shadow-sm rounded bg-white px-2 py-1 cursor-pointer">
-          <img src="/static/img/ic-delist.svg" alt="Delist Icon" width={11} />
-        </span>
-      </td>
-    </tr>
-  );
- };
+        });
 
- const Variants: React.FC<IProps> = ({
-  addVariant,
-  variants,
-  handleVariantImageDelete,
-  handleVariantImageUpload,
-  getValues,
-  fields,
-  update,
-  remove,
- }) => {
-  const [selectedVariatOption, setSelectedVariatOption] = useState<any>(null);
-  const dispatch = useDispatch();
+        // --- NEW: Handle message reactions ---
+        socket.on('reactToMessage', async (data: { messageId: string, emoji: string }) => {
+            const { messageId, emoji } = data;
+            const reactorId = userId;
 
-  useEffect(() => {
-    if (selectedVariatOption) {
-      showBootstrapModal("showImagesModal");
-    }
-  }, [selectedVariatOption]);
+            try {
+                const message = await Message.findById(messageId);
+                if (!message) return;
 
-  const handleDragEnd = (event: any) => {
-    const { active, over } = event;
+                // Find if the user has already reacted with any emoji
+                const existingReactionIndex = message.reactions.findIndex(r => r.user.toString() === reactorId);
 
-    if (active.id !== over?.id) {
-      const [variantIndexStr, optionIndexStrActive] = active.id.split("-");
-      const [_, optionIndexStrOver] = over?.id.split("-") || ["", ""];
+                if (existingReactionIndex > -1) {
+                    // If reacting with the same emoji, remove reaction (toggle off)
+                    if (message.reactions[existingReactionIndex].emoji === emoji) {
+                         message.reactions.splice(existingReactionIndex, 1);
+                    } else {
+                        // If reacting with a different emoji, update it
+                        message.reactions[existingReactionIndex].emoji = emoji;
+                    }
+                } else {
+                    // If no existing reaction from this user, add a new one
+                    message.reactions.push({ emoji, user: new mongoose.Types.ObjectId(reactorId) });
+                }
 
-      const variantIndex = parseInt(variantIndexStr, 10);
-      const optionIndexActive = parseInt(optionIndexStrActive, 10);
-      const optionIndexOver = parseInt(optionIndexStrOver, 10);
+                await message.save();
+                const updatedMessage = await Message.findById(messageId)
+                    .populate('sender', 'username avatar _id')
+                    .populate('receiver', 'username avatar _id');
 
-      if (
-        !isNaN(variantIndex) &&
-        !isNaN(optionIndexActive) &&
-        !isNaN(optionIndexOver) &&
-        variants[variantIndex]?.options
-      ) {
-        const newOptions = [...variants[variantIndex].options];
-        const [draggedOption] = newOptions.splice(optionIndexActive, 1);
-        newOptions.splice(optionIndexOver, 0, draggedOption);
+                // Broadcast the updated message to both sender and receiver
+                const receiverSocketId = userSockets[message.receiver.toString()];
+                const senderSocketId = userSockets[message.sender.toString()];
 
-        update(variantIndex, { ...fields[variantIndex], options: newOptions });
+                if (receiverSocketId) {
+                    io.to(receiverSocketId).emit('messageUpdated', updatedMessage);
+                }
+                if (senderSocketId) {
+                    io.to(senderSocketId).emit('messageUpdated', updatedMessage);
+                }
 
-        // Dispatch the action to update the backend
-        dispatch(
-          reorderVariantOptions({
-            productId: getValues("id"), // Assuming you have a hidden field with the product ID
-            variantId: variants[variantIndex].id,
-            newOrder: newOptions.map((option) => option.id), // Send an array of option IDs in the new order
-          })
-        );
-      }
-    }
-  };
+            } catch (error) {
+                 console.error('Error reacting to message:', error);
+                 socket.emit('messageError', { error: 'Failed to react to message' });
+            }
+        });
 
-  const sensors = useSensors(
-    useSensor(pointerSensor, {
-      activationConstraint: {
-        distance: 5,
-      },
-    })
-  );
+        // ... (typing indicator and disconnect logic remains the same)
+        socket.on('disconnect', async () => {
+             console.log(`User disconnected: ${socket.id}, userId: ${userId}`);
+            delete userSockets[userId];
+            try {
+                await User.findByIdAndUpdate(userId, { online: false, lastSeen: new Date() });
+                socket.broadcast.emit('userOffline', { userId });
+            } catch (error) {
+                console.error("Error updating user to offline:", error);
+            }
+        });
+    });
 
-  return (
-    <div>
-      <fieldset className="mb-4">
-        <div className="d-flex justify-content-between align-items-center my-4">
-          <legend>Variants</legend>
-          <button
-            type="button"
-            className="btn w-fit fs-14 d-flex align-items-center gap-1 primary-text border-primary text-nowrap"
-            data-bs-toggle="modal"
-            data-bs-target="#variantModal"
-            onClick={() => addVariant(true)}
-          >
-            <div className="bg-white d-flex align-items-center justify-content-center p-1 rounded fw-medium">
-              <img src="/static/img/add-ic.svg" alt="Add Icon" className="bg-transparent" />
-            </div>
-            Add Variants
-          </button>
-        </div>
-        {variants.map((variant, vIndex) => (
-          <div key={vIndex} className="overflow-x-auto table-main">
-            <h6>{variant.name}</h6>
-            <DndContext key={`dnd-context-${vIndex}`} sensors={sensors} onDragEnd={handleDragEnd}>
-              <SortableContext items={variant.options.map((option) => `${vIndex}-${option.id}`)}>
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th scope="col" className="fw-normal mb-3 text-nowrap">
-                        <FaArrowsAltV />
-                      </th>
-                      <th scope="col" className="fw-normal mb-3 text-nowrap">
-                        SKU
-                      </th>
-                      <th scope="col" className="fw-normal mb-3 text-nowrap">
-                        variant Options
-                      </th>
-                      <th scope="col" className="fw-normal mb-3 text-nowrap">
-                        Inventory
-                      </th>
-                      <th scope="col" className="fw-normal mb-3 text-nowrap">
-                        Available
-                      </th>
-                      <th scope="col" className="fw-normal mb-3 text-nowrap">
-                        Price
-                      </th>
-                      <th scope="col" className="fw-normal mb-3 text-nowrap">
-                        Upload Media
-                      </th>
-                      <th scope="col" className="fw-normal mb-3 text-nowrap">
-                        Action
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {variant.options.map((variantOption, voIndex) => (
-                      <SortableVariantOption
-                        key={variantOption.id}
-                        id={`${vIndex}-${variantOption.id}`}
-                        variantOption={variantOption}
-                        vIndex={vIndex}
-                        voIndex={voIndex}
-                        handleVariantImageDelete={handleVariantImageDelete}
-                        setSelectedVariatOption={setSelectedVariatOption}
-                        update={update}
-                        remove={remove}
-                      />
-                    ))}
-                  </tbody>
-                </table>
-              </SortableContext>
-            </DndContext>
-          </div>
-        ))}
-      </fieldset>
-      {/* Show Images Modal Start */}
-      <VariantsImagesModal
-        setSelectedVariatOption={setSelectedVariatOption}
-        selectedVariatOption={selectedVariatOption}
-        handleVariantImageDelete={handleVariantImageDelete}
-        handleVariantImageUpload={handleVariantImageUpload}
-        getValues={getValues}
-      />
-      {/* Show Images Modal End */}
-    </div>
-  );
- };
+    return io;
+};
+2. Frontend Updates (Client)
+Now for the client-side changes. We'll update our Redux slice and the UI components.
 
- export default Variants;
-2. Redux Slice (productSlice.ts):
+client/src/features/messages/messagesSlice.ts (Updated)
+We need to update the Message interface and add a new reducer to handle message updates (like new reactions).
 
 TypeScript
 
- import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
- import { AllOrderResponse } from "../../tsModels/checkOut";
- import { Order, SingleTrip } from "../../tsModels/order";
- import { RootState } from "../store";
- import {
-  DeliveryFulfillment,
-  GetAllTrips,
-  GetOrderByOrderId,
-  UpdateOrderDetails,
-  UpdateOrderStatus,
- } from "../thunks/order/order";
- import { getAllOrders, getShopProducts, reorderVariantOptions as reorderVariantOptionsApi } from "../thunks/product/product"; // Import the thunk
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import axios from 'axios';
+import { RootState } from '../../app/store';
 
- interface ReorderVariantOptionsPayload {
-  productId: string;
-  variantId: string;
-  newOrder: string[]; // Array of variant option IDs in the new order
- }
+// --- NEW/UPDATED INTERFACES ---
+interface Reaction {
+    emoji: string;
+    user: string; // User ID
+}
 
- export const reorderVariantOptions = createAsyncThunk(
-  "product/reorderVariantOptions",
-  async (payload: ReorderVariantOptionsPayload, { rejectWithValue }) => {
-    try {
-      const response = await reorderVariantOptionsApi(payload);
-      return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data || "An error occurred");
+interface OriginalMessage {
+    _id: string;
+    content: string;
+    sender: {
+        _id: string;
+        username: string;
+    };
+}
+
+export interface Message {
+    _id: string;
+    sender: { _id: string, username: string, avatar?: string };
+    receiver: { _id: string, username: string, avatar?: string };
+    content: string;
+    timestamp: string;
+    read: boolean;
+    reactions: Reaction[];
+    replyTo?: OriginalMessage;
+}
+
+interface MessagesState {
+    messages: Message[];
+    isLoading: boolean;
+    error: string | null;
+    typingUsers: { [userId: string]: boolean };
+}
+
+const initialState: MessagesState = {
+    messages: [],
+    isLoading: false,
+    error: null,
+    typingUsers: {},
+};
+
+export const fetchMessages = createAsyncThunk(
+    // ... (fetchMessages thunk remains the same)
+    'messages/fetchMessages',
+    async (otherUserId: string, thunkAPI) => {
+        const token = (thunkAPI.getState() as RootState).auth.token;
+        try {
+            const response = await axios.get(`http://localhost:5001/api/messages/${otherUserId}`, {
+                headers: { 'x-auth-token': token },
+            });
+            return response.data as Message[];
+        } catch (error: any) {
+            const message = (error.response && error.response.data && error.response.data.msg) || error.message || error.toString();
+            return thunkAPI.rejectWithValue(message);
+        }
     }
-  }
- );
+);
 
- const initialState = {
-  isLoading: false,
-  isAllOrderLoading: false,
-  isOrderStatusChanged: false,
-  isProductAssign: false,
-  products: [],
-  allorders: [] as Order[],
-  allTripOrder: [] as SingleTrip[],
-  singleOrder: {} as AllOrderResponse,
-  deliveryStatus: "",
-  trip: {} as SingleTrip,
-  isOrderCompleted: false,
-  isReordering: false, // New loading state for reordering
-  reorderSuccess: false, // New success state for reordering
-  reorderError: null, // New error state for reordering
- };
-
- const productSlice = createSlice({
-  name: "product",
-  initialState,
-  reducers: {
-    resetDeliveryStatusState: (state) => {
-      state.deliveryStatus = "";
-      state.singleOrder = {} as AllOrderResponse;
-      state.isOrderStatusChanged = false;
-      state.isProductAssign = false;
-      state.isOrderCompleted = false;
-      state.reorderSuccess = false; // Reset reorder success state
-      state.reorderError = null; // Reset reorder error state
+const messagesSlice = createSlice({
+    name: 'messages',
+    initialState,
+    reducers: {
+        addMessage: (state, action: PayloadAction<Message>) => {
+            if (!state.messages.find(msg => msg._id === action.payload._id)) {
+                 state.messages.push(action.payload);
+            }
+        },
+        // --- NEW REDUCER ---
+        updateMessage: (state, action: PayloadAction<Message>) => {
+            const index = state.messages.findIndex(msg => msg._id === action.payload._id);
+            if (index !== -1) {
+                state.messages[index] = action.payload;
+            }
+        },
+        clearMessages: (state) => {
+            state.messages = [];
+        },
+        // ... (setTyping and resetMessagesError remain the same)
     },
-    resetOrderCompleteState: (state) => {
-      state.isOrderCompleted = false;
+    extraReducers: (builder) => {
+        // ... (extraReducers logic remains the same)
+        builder
+            .addCase(fetchMessages.pending, (state) => {
+                state.isLoading = true;
+            })
+            .addCase(fetchMessages.fulfilled, (state, action: PayloadAction<Message[]>) => {
+                state.isLoading = false;
+                state.messages = action.payload;
+            })
+            .addCase(fetchMessages.rejected, (state, action) => {
+                state.isLoading = false;
+                state.error = action.payload as string;
+            });
     },
-  },
-  extraReducers: (builder) => {
-    builder.addCase(getShopProducts.pending, (state) => {
-      state.isLoading = true;
-    });
-    builder.addCase(getShopProducts.fulfilled, (state, action) => {
-      state.isLoading = false;
-      state.products = action.payload;
-    });
-    builder.addCase(getShopProducts.rejected, (state) => {
-      state.isLoading = false;
-    });
-    builder.addCase(getAllOrders.pending, (state) => {
-      state.isAllOrderLoading = true;
-      state.allTripOrder = [];
-    });
-    builder.addCase(getAllOrders.fulfilled, (state, action) => {
-      state.isAllOrderLoading = false;
-      state.allorders = action.payload;
-    });
-    builder.addCase(getAllOrders.rejected, (state) => {
-      state.isAllOrderLoading = false;
-    });
-    builder.addCase(GetOrderByOrderId.pending, (state) => {
-      state.isAllOrderLoading = true;
-    });
-    builder.addCase(GetOrderByOrderId.fulfilled, (state, action) => {
-      state.isAllOrderLoading = false;
-      state.singleOrder = action.payload;
-    });
-    builder.addCase(GetOrderByOrderId.rejected, (state) => {
-      state.isAllOrderLoading = false;
-      state.isProductAssign = false;
-    });
-    builder.addCase(DeliveryFulfillment.pending, (state) => {
-      state.isAllOrderLoading = true;
-      state.isProductAssign = false;
-    });
-    builder.addCase(DeliveryFulfillment.fulfilled, (state, action) => {
-      state.deliveryStatus = action.payload.data;
-      state.isProductAssign = true;
-      state.isAllOrderLoading = false;
-    });
-    builder.addCase(DeliveryFulfillment.rejected, (state) => {
-      state.isAllOrderLoading = false;
-      state.isOrderStatusChanged = false;
-    });
-    builder.addCase(GetAllTrips.pending, (state) => {
-      state.isAllOrderLoading = true;
-      state.allorders = [];
-    });
-    builder.addCase(GetAllTrips.fulfilled, (state, action) => {
-      state.isAllOrderLoading = false;
-      state.allTripOrder = action.payload;
-    });
-    builder.addCase(GetAllTrips.rejected, (state) => {
-      state.isAllOrderLoading = false;
-    });
-    builder.addCase(UpdateOrderStatus.pending, (state) => {
-      state.isLoading = true;
-      state.isOrderCompleted = false;
-    });
-    builder.addCase(UpdateOrderStatus.fulfilled, (state) => {
-      state.isLoading = false;
-      state.isOrderCompleted = true;
-    });
-    builder.addCase(UpdateOrderStatus.rejected, (state) => {
-      state.isLoading = false;
-      state.isOrderCompleted = false;
-    });
-    builder.addCase(UpdateOrderDetails.pending, (state) => {
-      state.isLoading = true;
-    });
-    builder.addCase(UpdateOrderDetails.fulfilled, (state) => {
-      state.isLoading = false;
-    });
-    builder.addCase(UpdateOrderDetails.rejected, (state) => {
-      state.isLoading = false;
-    });
-    builder.addCase(reorderVariantOptions.pending, (state) => {
-      state.isReordering = true;
-      state.reorderSuccess = false;
-      state.reorderError = null;
-    });
-    builder.addCase(reorderVariantOptions.fulfilled, (state) => {
-      state.isReordering = false;
-      state.reorderSuccess = true;
-    });
-    builder.addCase(reorderVariantOptions.rejected, (state, action) => {
-      state.isReordering = false;
-      state.reorderError = action.payload as string | null;
-    });
-  },
- });
+});
 
- // Actions
- export const productActions = productSlice.actions;
-
- // Selectors
- export const SelectProducts = (state: RootState) => {
-  return state.product.products;
- };
- export const SelectLoading = (state: RootState) => {
-  return state.product.isLoading;
- };
- export const SelectOrderLoading = (state: RootState) => {
-  return state.product.is
-
-
-
-
-Continue
-
+// Export new action
+export const { addMessage, updateMessage, clearMessages, setTyping, resetMessagesError } = messagesSlice.actions;
+export default messagesSlice.reducer;
+client/src/App.tsx (Updated)
+Add the handler for the new messageUpdated socket event.
 
 TypeScript
 
-state.product.isAllOrderLoading;
- };
- export const SelectAllOrders = (state: RootState) => {
-  return state.product.allorders;
- };
- export const SelectAllTripOrders = (state: RootState) => {
-  return state.product.allTripOrder;
- };
- export const SelectOrder = (state: RootState) => {
-  return state.product.singleOrder;
- };
- export const SelecteDeliveryStatus = (state: RootState) => {
-  return state.product.deliveryStatus;
- };
- export const SelectIsOrderStatusChanged = (state: RootState) => {
-  return state.product.isOrderStatusChanged;
- };
- export const SelectIsProductAssign = (state: RootState) => {
-  return state.product.isProductAssign;
- };
- export const SelectTrip = (state: RootState) => {
-  return state.product.trip;
- };
- export const SelectIsOrderCompleted = (state: RootState) => {
-  return state.product.isOrderCompleted;
- };
- export const SelectIsReordering = (state: RootState) => {
-  return state.product.isReordering;
- };
- export const SelectReorderSuccess = (state: RootState) => {
-  return state.product.reorderSuccess;
- };
- export const SelectReorderError = (state: RootState) => {
-  return state.product.reorderError;
- };
-
- // Reducer
- const productReducer = productSlice.reducer;
- export default productReducer;
-3. Redux Thunk (src/redux/thunks/product/product.ts):
-
-TypeScript
-
- import { createAsyncThunk } from "@reduxjs/toolkit";
- import { api } from "../../api";
- import { ProductList } from "../../../tsModels/product";
-
- export const getShopProducts = createAsyncThunk(
-  "product/getShopProducts",
-  async (_, { rejectWithValue }) => {
-    try {
-      const response = await api.get("/products"); // Adjust your API endpoint
-      return response.data as ProductList[];
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data || "An error occurred");
-    }
-  }
- );
-
- interface ReorderVariantOptionsPayload {
-  productId: string;
-  variantId: string;
-  newOrder: string[];
- }
-
- export const reorderVariantOptions = createAsyncThunk(
-  "product/reorderVariantOptionsApi",
-  async (payload: ReorderVariantOptionsPayload, { rejectWithValue }) => {
-    try {
-      const response = await api.post(`/products/${payload.productId}/variants/${payload.variantId}/reorder`, {
-        newOrder: payload.newOrder,
+// ... (inside the AppContent component's main useEffect)
+      // ...
+      socketInstance.on('receiveMessage', (message) => {
+          // ... (this logic remains the same)
       });
-      return response;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data || "An error occurred");
-    }
-  }
- );
-4. Backend (Node.js/Express with TypeScript):
 
-a) Router (src/routes/product.routes.ts or similar):
+      // --- NEW SOCKET EVENT HANDLER ---
+      socketInstance.on('messageUpdated', (updatedMessage) => {
+          dispatch(updateMessage(updatedMessage));
+      });
 
-TypeScript
-
- import express from "express";
- import {
-  getProducts,
-  reorderVariantOptions, // Import the new controller function
- } from "../controllers/product.controller";
- import { authenticate } from "../middleware/auth"; // Assuming you have authentication middleware
-
- const router = express.Router();
-
- router.get("/", getProducts);
- router.post("/:productId/variants/:variantId/reorder", authenticate, reorderVariantOptions);
-
- export default router;
-b) Controller (src/controllers/product.controller.ts):
+      socketInstance.on('userOnline', ({ userId }) => {
+      // ...
+// ... (and in the cleanup function)
+      return () => {
+        if (socketInstance) {
+          console.log("Cleaning up socket listeners in App.tsx");
+          socketInstance.off('receiveMessage');
+          socketInstance.off('messageUpdated'); // <-- Add this
+          socketInstance.off('userOnline');
+          // ...
+        }
+      };
+// ...
+client/src/components/Chat/ChatWindow.tsx (Updated)
+This component will now manage the state for which message is being replied to.
 
 TypeScript
 
- import { Request, Response } from "express";
- import { ProductModel } from "../models/product.model";
- import mongoose from "mongoose";
+import React, { useEffect, useRef, useState } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { Card, Form, Button, InputGroup, Image, Alert } from 'react-bootstrap';
+import { RootState, AppDispatch } from '../../app/store';
+import { Message } from '../../features/messages/messagesSlice';
+import MessageItem from './MessageItem';
+import { User as AuthUser } from '../../features/auth/authSlice';
+import { User as SelectedUserType } from '../../features/users/usersSlice';
+import { getSocket, sendTypingSocket } from '../../services/socket';
+import { FaPaperPlane, FaTimes } from 'react-icons/fa';
 
- export const getProducts = async (req: Request, res: Response) => {
-  try {
-    const products = await ProductModel.find();
-    res.status(200).json(products);
-  } catch (error: any) {
-    res.status(500).json({ message: error.message });
-  }
- };
+interface ChatWindowProps {
+    selectedUser: SelectedUserType;
+    currentUser: AuthUser;
+}
 
- export const reorderVariantOptions = async (req: Request, res: Response) => {
-  try {
-    const { productId, variantId } = req.params;
-    const { newOrder } = req.body;
+const ChatWindow: React.FC<ChatWindowProps> = ({ selectedUser, currentUser }) => {
+    const dispatch = useDispatch<AppDispatch>();
+    const { messages, isLoading, error } = useSelector((state: RootState) => state.messages);
+    const [newMessage, setNewMessage] = useState('');
+    // --- NEW STATE FOR REPLYING ---
+    const [replyingToMessage, setReplyingToMessage] = useState<Message | null>(null);
 
-    if (!mongoose.Types.ObjectId.isValid(productId) || !mongoose.Types.ObjectId.isValid(variantId)) {
-      return res.status(400).json({ message: "Invalid product or variant ID" });
-    }
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+    // ...
 
-    const product = await ProductModel.findById(productId);
-    if (!product) {
-      return res.status(404).json({ message: "Product not found" });
-    }
+    useEffect(() => {
+        // Clear reply state when chat partner changes
+        setReplyingToMessage(null);
+    }, [selectedUser]);
 
-    const variant = product.products.find((p) =>
-      p.variants.some((v) => v._id?.toString() === variantId)
-    )?.variants.find((v) => v._id?.toString() === variantId);
+    const handleSendMessage = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (newMessage.trim() === '' || !selectedUser) return;
 
-    if (!variant) {
-      return res.status(404).json({ message: "Variant not found" });
-    }
+        const socket = getSocket();
+        socket.emit('sendMessage', {
+            receiverId: selectedUser._id,
+            content: newMessage,
+            replyTo: replyingToMessage?._id, // <-- Send reply info
+        });
 
-    // Create a new array of options in the desired order
-    const orderedOptions = [];
-    const existingOptionsMap = new Map(variant.options.map((option) => [option._id?.toString(), option]));
+        setNewMessage('');
+        setReplyingToMessage(null); // <-- Clear reply state after sending
+        // ...
+    };
 
-    for (const optionId of newOrder) {
-      const option = existingOptionsMap.get(optionId);
-      if (option) {
-        orderedOptions.push(option);
-      }
-    }
+    // --- NEW: Function to set the reply state, passed to MessageItem ---
+    const handleSetReply = (message: Message) => {
+        setReplyingToMessage(message);
+    };
 
-    // Update the variant's options with the new order
-    const productIndex = product.products.findIndex((p) =>
-      p.variants.some((v) => v._id?.toString() === variantId)
+    // ...
+
+    return (
+        <div className="d-flex flex-column h-100">
+            {/* ... (Card.Header remains the same) ... */}
+
+            <Card.Body className="p-3 flex-grow-1" style={{ overflowY: 'auto', backgroundColor: '#f0f2f5' }}>
+                {/* ... (Message mapping logic) ... */}
+                {!isLoading && !error && messages.map((msg: Message) => (
+                    <MessageItem
+                        key={msg._id}
+                        message={msg}
+                        currentUserId={currentUser.id}
+                        onReply={handleSetReply} // <-- Pass reply handler down
+                    />
+                ))}
+                <div ref={messagesEndRef} />
+            </Card.Body>
+
+            <Card.Footer className="p-3 border-top">
+                {/* --- NEW: Reply Preview --- */}
+                {replyingToMessage && (
+                    <Alert
+                        variant="secondary"
+                        onClose={() => setReplyingToMessage(null)}
+                        dismissible
+                        className="p-2 mb-2"
+                    >
+                        <Alert.Heading className="fs-6 mb-0">
+                            Replying to {replyingToMessage.sender.username}
+                        </Alert.Heading>
+                        <p className="mb-0 text-muted" style={{
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                        }}>
+                            {replyingToMessage.content}
+                        </p>
+                    </Alert>
+                )}
+                {/* --- Form remains largely the same --- */}
+                <Form onSubmit={handleSendMessage}>
+                    {/* ... (InputGroup and Form.Control) ... */}
+                </Form>
+            </Card.Footer>
+        </div>
     );
-    const variantIndex = product.products[productIndex]?.variants.findIndex(
-      (v) => v._id?.toString() === variantId
-    );
+};
 
-    if (productIndex !== -1 && variantIndex !== -1) {
-      product.products[productIndex].variants[variantIndex].options = orderedOptions;
-      await product.save();
-      res.status(200).json({ message: "Variant options reordered successfully" });
-    } else {
-      return res.status(404).json({ message: "Failed to update variant options" });
-    }
-  } catch (error: any) {
-    res.status(500).json({ message: error.message });
-  }
- };
-c) Model (src/models/product.model.ts):
+export default ChatWindow;
+client/src/components/Chat/MessageItem.tsx (Heavily Updated)
+This is where the main UI for replies and reactions will be implemented. This component becomes much more interactive.
 
 TypeScript
 
- import mongoose, { Schema, Document } from "mongoose";
+import React, { useState } from 'react';
+import { Message } from '../../features/messages/messagesSlice';
+import { Image, Popover, OverlayTrigger, Button, Badge } from 'react-bootstrap';
+import { FaReply, FaRegSmile } from 'react-icons/fa';
+import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
+import { getSocket } from '../../services/socket';
+import './MessageItem.css'; // We'll update this file next
 
- interface VariantOption extends Document {
-  name: string;
-  variantImage?: string[];
-  variantSku?: string;
-  variantInventory?: number;
-  variantPrice?: number;
-  _id?: mongoose.Types.ObjectId;
- }
+interface MessageItemProps {
+    message: Message;
+    currentUserId: string;
+    onReply: (message: Message) => void; // Callback to initiate a reply
+}
 
- interface Variant extends Document {
-  variantName?: string;
-  options: VariantOption[];
-  _id?: mongoose.Types.ObjectId;
- }
+const MessageItem: React.FC<MessageItemProps> = ({ message, currentUserId, onReply }) => {
+    const isSender = message.sender._id === currentUserId;
+    const timeString = new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const [showActions, setShowActions] = useState(false);
 
- interface Category {
-  categoryName?: string;
-  innerSubCategory?: string;
-  mainCategory?: string;
-  mostInnerSubCategory?: string;
-  subCategory?: string;
-  value?: string;
-  _id?: mongoose.Types.ObjectId;
- }
+    const handleEmojiSelect = (emojiData: EmojiClickData) => {
+        const socket = getSocket();
+        socket.emit('reactToMessage', {
+            messageId: message._id,
+            emoji: emojiData.emoji,
+        });
+        // Close the popover manually by clicking the body
+        document.body.click();
+    };
 
- interface ProductList extends Document {
-  productName?: string;
-  description?: string;
-  category?: Category[];
-  inStock?: boolean;
-  variants?: Variant[];
-  _id?: mongoose.Types.ObjectId;
- }
+    // Group reactions for display (e.g., 😂: 2, ❤️: 1)
+    const groupedReactions = message.reactions.reduce((acc, reaction) => {
+        acc[reaction.emoji] = (acc[reaction.emoji] || 0) + 1;
+        return acc;
+    }, {} as Record<string, number>);
 
- interface Product extends Document {
-  userId?: string;
-  businessName?: string;
-  productNumber?: number;
-  products: ProductList[];
-  _id?: mongoose.Types.ObjectId;
- }
-
- const VariantOptionSchema: Schema<VariantOption> = new Schema({
-  name: String,
-  variantImage: {
-    type: [String],
-  },
-  variantSku: String,
-  variantInventory: Number,
-  variantPrice: Number,
- });
-
- const VariantSchema: Schema<Variant> = new Schema({
-  variantName: String,
-  options: [VariantOptionSchema],
- });
-
- const ProductListSchema: Schema<ProductList> = new Schema({
-  productName: {
-    type: String,
-  },
-  description: {
-    type: String,
-  },
-  category: [
-    {
-      categoryName: {
-        type: String,
-      },
-      innerSubCategory: {
-        type: String,
-      },
-      mainCategory: {
-        type: String,
-      },
-      mostInnerSubCategory: {
-        type: String,
-      },
-      subCategory: {
-        type: String,
-      },
-      value: {
-        type: String,
-      },
-      _id: false, // Prevent Mongoose from creating _id for sub-documents by default
-    },
-  ],
-  inStock: {
-    type: Boolean,
-  },
-  variants: [VariantSchema],
- });
-
- const ProductSchema: Schema<Product> = new Schema({
-  userId: {
-    type: String,
-  },
-  businessName: {
-    type: String,
-    required: true,
-  },
-  productNumber: {
-    type: Number,
-    default: 0,
-  },
-  products: [ProductListSchema],
- });
-
- export const ProductModel = mongoose.model<Product>("Product", ProductSchema);
-Key Changes and Explanations:
-
-Frontend:
-
-dnd-kit Integration:
-
-Imported necessary hooks and components from @dnd-kit/core and @dnd-kit/sortable.
-Wrapped the table body with <DndContext> to provide the drag and drop context.
-Used <SortableContext> to manage the sortable items (table rows). The items prop should be an array of unique IDs for each sortable item. Here, we use <span class="math-inline">\{vIndex\}\-</span>{variantOption.id} to ensure uniqueness across different variants.
-Created a SortableVariantOption component using useSortable to make each table row draggable. The id prop passed to useSortable must match the IDs in the SortableContext's items array.
-Applied styles (transform, transition) to the draggable item for visual feedback.
-Added FaArrowsAltV from react-icons/fa as a drag handle in the first table cell. The listeners and attributes from useSortable are applied to the <tr> element to make it draggable.
-Implemented handleDragEnd function:
-Determines if the dragged item was dropped over a different item.
-Extracts the variant and option indices from the active.id and over?.id.
-Updates the local variants state using the update function provided by react-hook-form.
-Dispatches the reorderVariantOptions Redux thunk, passing the productId, variantId, and an array of the new order of variant option IDs.
-Used useSensors and useSensor(pointerSensor) to enable drag interactions with pointer devices. The activationConstraint is added to prevent accidental drags.
-Redux Integration:
-
-Imported the new reorderVariantOptions thunk from the product thunks file.
-Dispatched this thunk in the handleDragEnd function.
-Redux (productSlice.ts):
-
-reorderVariantOptions Async Thunk:
-Created a new createAsyncThunk to handle the API call for reordering.
-This thunk takes a ReorderVariantOptionsPayload containing productId, variantId, and newOrder (an array of variant option IDs in the desired order).
-It calls the reorderVariantOptionsApi (defined in the thunks file).
-Includes pending, fulfilled, and rejected cases to manage loading and error states.
-State Updates:
-Added new state variables: isReordering, reorderSuccess, and reorderError to track the status of the reordering operation.
-Reset these states in the resetDeliveryStatusState reducer for cleaner state management.
-Updated the extraReducers to handle the lifecycle of the reorderVariantOptions thunk.
-Selectors:
-Added new selectors to access the reordering-related state variables.
-Redux Thunk (src/redux/thunks/product/product.ts):
-
-reorderVariantOptionsApi Function:
-This function makes the actual API call to your backend endpoint (/products/:productId/variants/:variantId/reorder).
-It sends the newOrder array in the request body.
-Backend:
-
-Router (product.routes.ts):
-
-Defined a new POST route: /products/:productId/variants/:variantId/reorder.
-This route uses the reorderVariantOptions controller function and the authenticate middleware (assuming you have authentication).
-Controller (product.controller.ts):
-
-Implemented the reorderVariantOptions function:
-Extracts productId, variantId from the request parameters and newOrder from the request body.
-Validates the product and variant IDs.
-Finds the specific product and variant in the database.
-Creates a new array of variant options based on the order of IDs in the newOrder array. It uses the existing option data to maintain other properties.
-Updates the options array of the variant with the orderedOptions.
-Saves the updated product to the database.
-Returns a success or error response.
-Model (product.model.ts):
-
-Ensured that the _id field is correctly defined for the VariantOption interface and schema, as we are using these IDs for reordering.
-To Use This Code:
-
-Install Dependencies:
-
-Frontend: npm install @dnd-kit/core @dnd-kit/sortable react-icons
-Backend: Make sure you have express, mongoose, typescript, and their respective @types installed.
-Set up your Redux store and ensure the productReducer is correctly integrated.
-
-Implement the API endpoint on your backend as described.
-
-Replace /products with your actual API endpoint for fetching products in the getShopProducts thunk.
-
-Ensure your getValues("id") in the handleDragEnd function correctly retrieves the ID of the current product being edited. You might need to adjust this based on how your form is structured.
-
-Test thoroughly to ensure the drag and drop reordering works correctly in the UI and that the database is updated accurately after reordering.
-
-This comprehensive update provides the drag and drop functionality for your variant options table and persists the reordered data to your MongoDB database. Remember to adapt the API endpoint and any other project-specific configurations as needed.
-
-
-
-
-
-
-But you dint use updateone or find by id how you will update on backend
-
-
-You are absolutely correct! My apologies for that oversight in the backend controller. I was focusing on finding and modifying the document in memory but missed the crucial step of using a Mongoose update operation to persist those changes efficiently.
-
-Here's the corrected reorderVariantOptions controller function that uses updateOne for a more direct and efficient database update:
-
-TypeScript
-
- import { Request, Response } from "express";
- import { ProductModel } from "../models/product.model";
- import mongoose from "mongoose";
-
- export const reorderVariantOptions = async (req: Request, res: Response) => {
-  try {
-    const { productId, variantId } = req.params;
-    const { newOrder } = req.body;
-
-    if (!mongoose.Types.ObjectId.isValid(productId) || !mongoose.Types.ObjectId.isValid(variantId)) {
-      return res.status(400).json({ message: "Invalid product or variant ID" });
-    }
-
-    const product = await ProductModel.findById(productId);
-    if (!product) {
-      return res.status(404).json({ message: "Product not found" });
-    }
-
-    const productIndex = product.products.findIndex((p) =>
-      p.variants.some((v) => v._id?.toString() === variantId)
-    );
-    const variantIndex = product.products[productIndex]?.variants.findIndex(
-      (v) => v._id?.toString() === variantId
+    const emojiPickerPopover = (
+        <Popover id={`popover-emoji-${message._id}`} style={{ border: 'none' }}>
+            <Popover.Body style={{ padding: 0 }}>
+                <EmojiPicker onEmojiClick={handleEmojiSelect} height={350} width={300} />
+            </Popover.Body>
+        </Popover>
     );
 
-    if (productIndex === -1 || variantIndex === -1) {
-      return res.status(404).json({ message: "Variant not found within the product" });
-    }
+    return (
+        <div
+            className={`d-flex mb-1 message-container ${isSender ? 'justify-content-end' : 'justify-content-start'}`}
+            onMouseEnter={() => setShowActions(true)}
+            onMouseLeave={() => setShowActions(false)}
+        >
+            {/* Action Buttons (Reply, React) */}
+            <div className={`message-actions ${isSender ? 'actions-left' : 'actions-right'}`}>
+                {showActions && (
+                    <>
+                        <Button variant="link" size="sm" className="p-0 me-2 action-btn" onClick={() => onReply(message)}>
+                            <FaReply />
+                        </Button>
+                        <OverlayTrigger trigger="click" placement={isSender ? "left" : "right"} overlay={emojiPickerPopover} rootClose>
+                            <Button variant="link" size="sm" className="p-0 action-btn">
+                                <FaRegSmile />
+                            </Button>
+                        </OverlayTrigger>
+                    </>
+                )}
+            </div>
 
-    const variantToUpdate = product.products[productIndex].variants[variantIndex];
-    const existingOptionsMap = new Map(variantToUpdate.options.map((option) => option._id?.toString(), option));
-    const orderedOptions = newOrder.map(optionId => existingOptionsMap.get(optionId)).filter(option => option !== undefined);
+            {/* Message Bubble */}
+            <div className={`message-bubble-wrapper ${isSender ? 'sent' : 'received'}`}>
+                {/* --- NEW: Reply Block --- */}
+                {message.replyTo && (
+                    <div className="reply-preview p-2 mb-1">
+                        <p className="fw-bold mb-0" style={{fontSize: '0.8rem'}}>{message.replyTo.sender.username}</p>
+                        <p className="mb-0 text-muted" style={{fontSize: '0.9rem'}}>
+                            {message.replyTo.content}
+                        </p>
+                    </div>
+                )}
 
-    const updatePath = `products.<span class="math-inline">\{productIndex\}\.variants\.</span>{variantIndex}.options`;
+                <div className={`message-bubble p-2 px-3 shadow-sm`}>
+                    {!isSender && <small className="fw-bold d-block message-sender-name">{message.sender.username}</small>}
+                    <p className="mb-1 message-content">{message.content}</p>
+                    <small className="text-muted d-block text-end message-timestamp">{timeString}</small>
 
-    const result = await ProductModel.updateOne(
-      { _id: productId, [`products.variants._id`]: variantId },
-      { $set: { [updatePath]: orderedOptions } }
+                    {/* --- NEW: Reactions Display --- */}
+                    {Object.keys(groupedReactions).length > 0 && (
+                        <div className="reactions-container">
+                            {Object.entries(groupedReactions).map(([emoji, count]) => (
+                                <Badge pill bg="light" text="dark" key={emoji} className="reaction-badge">
+                                    {emoji} {count > 1 && count}
+                                </Badge>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
     );
+};
 
-    if (result.modifiedCount > 0) {
-      res.status(200).json({ message: "Variant options reordered successfully" });
-    } else {
-      return res.status(404).json({ message: "Failed to update variant options" });
-    }
-  } catch (error: any) {
-    res.status(500).json({ message: error.message });
-  }
- };
-Explanation of Changes:
+export default MessageItem;
 
-Finding the Indices: We still find the productIndex and variantIndex to correctly target the nested array.
+client/src/components/Chat/MessageItem.css (Updated)
+Finally, let's add styles for the new UI elements.
 
-Creating orderedOptions: We construct the orderedOptions array based on the newOrder from the request, ensuring we maintain the existing data for each option.
+CSS
 
-Constructing the Update Path: We dynamically create the updatePath string to target the specific options array within the correct variant of the correct product. This path will look something like products.0.variants.1.options if the variant is the second one in the first product in the products array.
+/* Container for the whole message row */
+.message-container {
+    position: relative;
+    padding: 0 40px; /* Make space for action buttons */
+}
 
-Using updateOne with $set:
+/* Actions buttons (reply, react) */
+.message-actions {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    background-color: #f8f9fa;
+    border-radius: 20px;
+    padding: 4px 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+}
+.message-container:hover .message-actions {
+    opacity: 1;
+}
+.actions-left { left: 0; }
+.actions-right { right: 0; }
+.action-btn {
+    color: #6c757d;
+    font-size: 1.1rem;
+}
+.action-btn:hover {
+    color: #343a40;
+}
 
-We use ProductModel.updateOne() to directly update the database.
-The first argument is a query to find the specific product and the variant within its products array. We use the positional operator $ implicitly through the array index in the updatePath.
-The second argument uses the $set operator to update the options array at the determined updatePath with the orderedOptions.
-Checking modifiedCount: We check the result of the updateOne operation. If modifiedCount is greater than 0, it means the update was successful.
+/* Wrapper for the bubble and its contents */
+.message-bubble-wrapper {
+    max-width: 75%;
+}
 
-This corrected version directly updates the relevant part of the MongoDB document using a more efficient updateOne operation. Thank you for pointing out this crucial error! It's important to always ensure data persistence when handling updates.
+.message-bubble {
+    border-radius: 15px;
+    position: relative;
+}
+
+.message-bubble-wrapper.sent .message-bubble {
+    background-color: #dcf8c6;
+    border-bottom-right-radius: 5px;
+    color: #303030;
+}
+
+.message-bubble-wrapper.received .message-bubble {
+    background-color: #ffffff;
+    border-bottom-left-radius: 5px;
+    color: #303030;
+    border: 1px solid #e9e9e9;
+}
+
+/* Reply preview styling */
+.reply-preview {
+    background-color: rgba(0, 0, 0, 0.05);
+    border-left: 3px solid #0d6efd; /* Use theme primary color */
+    border-radius: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+.message-bubble-wrapper.received .reply-preview {
+    border-left-color: #6c757d; /* A different color for received replies */
+}
+
+/* Reactions styling */
+.reactions-container {
+    position: absolute;
+    bottom: -10px;
+    right: 10px; /* Adjust for sent vs received */
+    background-color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+    padding: 2px 4px;
+    display: flex;
+    gap: 2px;
+}
+.message-bubble-wrapper.received .reactions-container {
+    left: 10px;
+    right: auto;
+}
+.reaction-badge {
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+/* Other styles from before... */
+.message-sender-name { /* ... */ }
+.message-content { /* ... */ }
+.message-timestamp { /* ... */ }
